@@ -216,7 +216,11 @@ class _HomeTabState extends State<HomeTab> {
                       ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.asset(
-                              iconFor(a.title) == Icons.restaurant || iconFor(a.title) == Icons.kitchen_outlined ? 'assets/images/food_bowl.jpg' : 'assets/images/meal_prep.jpg',
+                              switch (iconFor(a.title)) {
+                                Icons.restaurant => 'assets/images/food_bowl.jpg',
+                                Icons.kitchen_outlined || Icons.shopping_cart_outlined => 'assets/images/meal_prep.jpg',
+                                _ => 'assets/images/vision_3.jpg',
+                              },
                               width: 92,
                               height: 92,
                               fit: BoxFit.cover)),

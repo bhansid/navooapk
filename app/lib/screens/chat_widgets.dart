@@ -99,7 +99,7 @@ class QuickChoices extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             onTap: () => onPick(q.label),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: EdgeInsets.symmetric(horizontal: grid ? 14 : 18, vertical: 12),
               child: Row(mainAxisSize: grid ? MainAxisSize.max : MainAxisSize.min, children: [
                 if (q.icon != null) ...[Icon(q.icon, color: q.color ?? NC.blue, size: 22), const SizedBox(width: 12)],
                 Flexible(child: Text(q.label, style: const TextStyle(fontSize: 15.5, color: NC.navy, fontWeight: FontWeight.w500))),
@@ -114,7 +114,7 @@ class QuickChoices extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 2.9,
+        childAspectRatio: 2.3,
         children: choices.map(chip).toList(),
       );
     }

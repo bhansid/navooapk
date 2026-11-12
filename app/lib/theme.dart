@@ -177,12 +177,12 @@ class SoftButton extends StatelessWidget {
   final bool outlined;
   const SoftButton(this.label, {super.key, this.onPressed, this.icon, this.outlined = false});
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: double.infinity,
-        height: 54,
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 54, minWidth: double.infinity),
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             backgroundColor: outlined ? Colors.white : NC.blueTint,
             foregroundColor: NC.blue,
             shape: RoundedRectangleBorder(

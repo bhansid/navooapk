@@ -508,7 +508,7 @@ class _CelebrationScreenState extends State<CelebrationScreen> with SingleTicker
     if (s.reward.isNotEmpty) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RewardClaimScreen()));
     } else {
-      Navigator.pop(context);
+      Navigator.of(context).popUntil((r) => r.isFirst);
     }
   }
 
@@ -634,7 +634,7 @@ class RewardClaimScreen extends StatelessWidget {
         const SizedBox(height: 22),
         PrimaryButton('Claim reward', trailingArrow: true, testKey: const Key('claim_reward'), onPressed: () {
           toast(context, 'Enjoy it. You followed through.');
-          Navigator.pop(context);
+          Navigator.of(context).popUntil((r) => r.isFirst);
         }),
         const SizedBox(height: 12),
         SoftButton('Change my reward', onPressed: () async {
