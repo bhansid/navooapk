@@ -31,10 +31,20 @@ void main() {
       log.add('shot $name');
     }
 
+    void nudgeScroll() {
+      for (final e in find.byType(Scrollable).evaluate()) {
+        final st = (e as StatefulElement).state as ScrollableState;
+        final p = st.position;
+        if (p.axis != Axis.vertical || !p.hasContentDimensions) continue;
+        if (p.pixels < p.maxScrollExtent) p.jumpTo((p.pixels + 400).clamp(0.0, p.maxScrollExtent));
+      }
+    }
+
     Future<void> waitFor(Finder f, {int secs = 75}) async {
       for (var i = 0; i < secs * 5; i++) {
         await t.pump(const Duration(milliseconds: 200));
         if (f.evaluate().isNotEmpty) return;
+        if (i % 3 == 2) nudgeScroll();
       }
       throw TestFailure('Timed out waiting for $f. Steps so far: $log');
     }
