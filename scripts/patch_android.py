@@ -46,6 +46,15 @@ if '<queries>' in x and 'cursor.item/event' not in x:
     x = x.replace('<queries>', '<queries>\n' + cal, 1)
 elif '<queries>' not in x:
     x = x.replace('</manifest>', '    <queries>\n' + cal + '    </queries>\n</manifest>')
+deep = '''            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.navoo.navoo" android:host="login-callback" />
+            </intent-filter>
+        </activity>'''
+if 'login-callback' not in x:
+    x = x.replace('        </activity>', deep, 1)
 open(m, 'w').write(x)
 
 # MainActivity with the wallpaper channel

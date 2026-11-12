@@ -231,10 +231,6 @@ class _SocialRow extends StatelessWidget {
           Expanded(child: Divider(color: NC.border)),
         ]),
         const SizedBox(height: 14),
-        if (Theme.of(context).platform == TargetPlatform.iOS) ...[
-          _social(context, Icons.apple, 'Continue with Apple'),
-          const SizedBox(height: 12),
-        ],
         _social(context, Icons.g_mobiledata, 'Continue with Google'),
       ]);
 
@@ -248,7 +244,19 @@ class _SocialRow extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
           icon: Icon(icon, size: 28, color: NC.text),
           label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: NC.text)),
-          onPressed: () => toast(context, 'Google and Apple sign-in arrive in the next update. Please use email for now.'),
+          onPressed: () async {
+            if (icon == Icons.apple) {
+              toast(context, 'Sign in with Apple arrives with the iPhone version.');
+              return;
+            }
+            final r = await Auth.google();
+            if (!context.mounted) return;
+            if (r == null || r.$1.isEmpty) {
+              toast(context, 'Google sign-in was cancelled.');
+              return;
+            }
+            await _enterApp(context, r.$1, name: r.$2.isEmpty ? null : r.$2);
+          },
         ),
       );
 }

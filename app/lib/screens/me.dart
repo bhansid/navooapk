@@ -410,8 +410,8 @@ class AccountScreen extends StatelessWidget {
             tint: NC.lilacTint,
             iconColor: const Color(0xFF7A62B8),
             label: 'Connected accounts',
-            title: 'Email sign-in',
-            subtitle: 'Google and Apple sign-in arrive in the next update.'),
+            title: 'Email or Google sign-in',
+            subtitle: 'Apple sign-in arrives with the iPhone version.'),
         const SizedBox(height: 10),
         InfoCard(
             icon: Icons.delete_outline,

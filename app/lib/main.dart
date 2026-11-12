@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
+import 'api.dart';
 import 'device.dart';
 import 'state.dart';
 import 'theme.dart';
@@ -13,6 +15,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, systemNavigationBarColor: NC.bg));
+  await sb_.Supabase.initialize(url: kSupabaseUrl, anonKey: kSupabaseAnon, authOptions: const sb_.FlutterAuthClientOptions(authFlowType: sb_.AuthFlowType.pkce));
   await AppState.I.load();
   Device.init();
   runApp(const NavooApp());

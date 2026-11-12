@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -154,6 +156,32 @@ class Auth {
       return r.statusCode < 400;
     } catch (_) {
       return false;
+    }
+  }
+
+  static const oauthRedirect = 'com.navoo.navoo://login-callback';
+
+  /// Opens Google in the browser; returns the signed-in email and first name, or null if cancelled.
+  static Future<(String, String)?> google() async {
+    final sb = sb_.Supabase.instance.client;
+    final done = Completer<(String, String)?>();
+    late final StreamSubscription sub;
+    sub = sb.auth.onAuthStateChange.listen((e) {
+      final u = e.session?.user;
+      if (e.event == sb_.AuthChangeEvent.signedIn && u != null && !done.isCompleted) {
+        final meta = u.userMetadata ?? {};
+        final full = '${meta['full_name'] ?? meta['name'] ?? ''}'.trim();
+        done.complete((u.email ?? '', full.split(' ').first));
+      }
+    });
+    try {
+      await sb.auth.signInWithOAuth(sb_.OAuthProvider.google, redirectTo: oauthRedirect, authScreenLaunchMode: sb_.LaunchMode.externalApplication);
+      final r = await done.future.timeout(const Duration(minutes: 3), onTimeout: () => null);
+      return r;
+    } catch (_) {
+      return null;
+    } finally {
+      await sub.cancel();
     }
   }
 
