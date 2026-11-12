@@ -100,6 +100,19 @@ async function flagSafety(userId, kind, text) {
     const store = getStore("safety-flags");
     const key = `${new Date().toISOString()}_${(userId || "anon").replace(/[^a-zA-Z0-9@._-]/g, "")}`;
     await store.setJSON(key, { userId, kind, text: String(text).slice(0, 1000), at: new Date().toISOString() });
+    // Email alert via Netlify Forms notifications (configured to go to the Navoo safety lead).
+    const site = process.env.URL || "https://navoo-coach-api.netlify.app";
+    await fetch(`${site}/`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        "form-name": "safety-alert",
+        user: String(userId || "unknown"),
+        kind: kind === "crisis-keyword" || kind === "crisis" ? "Possible crisis / self-harm" : kind === "eating_disorder" ? "Possible eating disorder" : String(kind),
+        time: new Date().toISOString(),
+        message: String(text).slice(0, 500),
+      }).toString(),
+    });
   } catch (e) {
     console.error("flag failed", e);
   }
