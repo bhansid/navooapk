@@ -15,7 +15,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, systemNavigationBarColor: NC.bg));
-  await sb_.Supabase.initialize(url: kSupabaseUrl, anonKey: kSupabaseAnon, authOptions: const sb_.FlutterAuthClientOptions(authFlowType: sb_.AuthFlowType.pkce));
+  if (Auth.remote) await sb_.Supabase.initialize(url: kSupabaseUrl, anonKey: kSupabaseAnon, authOptions: const sb_.FlutterAuthClientOptions(authFlowType: sb_.AuthFlowType.pkce));
   await AppState.I.load();
   Device.init();
   runApp(const NavooApp());

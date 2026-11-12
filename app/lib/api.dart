@@ -163,6 +163,7 @@ class Auth {
 
   /// Opens Google in the browser; returns the signed-in email and first name, or null if cancelled.
   static Future<(String, String)?> google() async {
+    if (!remote) return null;
     final sb = sb_.Supabase.instance.client;
     final done = Completer<(String, String)?>();
     late final StreamSubscription sub;

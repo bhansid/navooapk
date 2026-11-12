@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
+import 'api.dart' show Auth;
 
 class ChatMsg {
   final String role; // user | assistant
@@ -433,7 +434,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await sb_.Supabase.instance.client.auth.signOut();
+      if (Auth.remote) await sb_.Supabase.instance.client.auth.signOut();
     } catch (_) {}
     loggedIn = false;
     await save();
