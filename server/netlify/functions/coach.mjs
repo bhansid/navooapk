@@ -2,7 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import { getStore } from "@netlify/blobs";
 import { COACH_SYSTEM, OUTPUT_RULES } from "./coaching-prompt.mjs";
 
-const MODELS = (process.env.NAVOO_MODELS || "gemini-2.5-flash,gemini-flash-latest,gemini-2.0-flash,gemini-2.5-flash-lite").split(",");
+const PREFERRED = (process.env.NAVOO_MODELS || "gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-flash-lite-latest").split(",").map((m) => m.trim());
+let workingModel = null;
+let discovered = null;
 
 const CRISIS_WORDS = [
   "suicide", "suicidal", "kill myself", "end my life", "want to die", "self harm", "self-harm",
@@ -24,33 +26,65 @@ const json = (data, status = 200) =>
 let ai;
 const client = () => (ai ??= new GoogleGenAI({}));
 
-async function generate(system, contents, wantJson = true) {
-  let lastErr;
-  for (const model of MODELS) {
-    try {
-      const res = await client().models.generateContent({
-        model: model.trim(),
-        contents,
-        config: {
-          systemInstruction: system,
-          temperature: 0.7,
-          ...(wantJson ? { responseMimeType: "application/json" } : {}),
-        },
-      });
-      const text = res.text ?? "";
-      if (!wantJson) return text;
-      try {
-        return JSON.parse(text);
-      } catch {
-        const m = text.match(/\{[\s\S]*\}/);
-        if (m) return JSON.parse(m[0]);
-        throw new Error("Model did not return JSON");
-      }
-    } catch (e) {
-      lastErr = e;
+async function discoverModels() {
+  if (discovered) return discovered;
+  const names = [];
+  try {
+    const pager = await client().models.list();
+    for await (const m of pager) {
+      const n = String(m.name || "").replace(/^models\//, "");
+      const actions = m.supportedActions || [];
+      if (!/flash/.test(n) || /image|tts|live|audio|embedding|vision|thinking-exp/.test(n)) continue;
+      if (actions.length && !actions.includes("generateContent")) continue;
+      names.push(n);
     }
+  } catch (e) {
+    console.error("list models failed", e);
   }
-  throw lastErr ?? new Error("No model available");
+  const ver = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  names.sort((a, b) => ver(b) - ver(a) || (a.includes("lite") ? 1 : 0) - (b.includes("lite") ? 1 : 0) || a.length - b.length);
+  discovered = names.filter((n) => !/preview|exp/.test(n)).concat(names.filter((n) => /preview|exp/.test(n)));
+  return discovered;
+}
+
+async function callModel(model, system, contents, wantJson) {
+  const res = await client().models.generateContent({
+    model,
+    contents,
+    config: { systemInstruction: system, temperature: 0.7, ...(wantJson ? { responseMimeType: "application/json" } : {}) },
+  });
+  const text = res.text ?? "";
+  if (!wantJson) return text;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+    throw new Error("Model did not return JSON");
+  }
+}
+
+async function generate(system, contents, wantJson = true) {
+  const errors = [];
+  const tried = new Set();
+  const tryList = async (list) => {
+    for (const model of list) {
+      if (!model || tried.has(model)) continue;
+      tried.add(model);
+      try {
+        const out = await callModel(model, system, contents, wantJson);
+        workingModel = model;
+        return { out };
+      } catch (e) {
+        errors.push(`${model}: ${String(e?.message || e).slice(0, 160)}`);
+      }
+    }
+    return null;
+  };
+  let r = await tryList([workingModel, ...PREFERRED]);
+  if (!r) r = await tryList((await discoverModels()).slice(0, 6));
+  if (r) return r.out;
+  throw new Error(errors.join(" | ").slice(0, 900));
 }
 
 function profileBlock(profile) {
@@ -111,7 +145,7 @@ Data: ${JSON.stringify(d)}`,
 
 export default async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
-  if (req.method === "GET") return json({ ok: true, service: "navoo-coach", gateway: Boolean(process.env.GOOGLE_GEMINI_BASE_URL || process.env.GEMINI_API_KEY) });
+  if (req.method === "GET") return json({ ok: true, service: "navoo-coach", model: workingModel, models: new URL(req.url).searchParams.has("models") ? await discoverModels() : undefined });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   let body;
