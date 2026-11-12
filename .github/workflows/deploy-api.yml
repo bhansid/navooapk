@@ -1,0 +1,20 @@
+name: Deploy coach API
+on:
+  workflow_dispatch:
+    inputs:
+      proxy_path:
+        description: Netlify MCP proxy path
+        required: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy to Netlify
+        working-directory: server
+        env:
+          PROXY_PATH: ${{ inputs.proxy_path }}
+        run: npx -y @netlify/mcp@latest --site-id 678ea82c-c705-404f-840d-7024471371c7 --proxy-path "$PROXY_PATH"

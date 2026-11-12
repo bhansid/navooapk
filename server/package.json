@@ -1,0 +1,9 @@
+{
+  "name": "navoo-coach-api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "latest",
+    "@netlify/blobs": "latest"
+  }
+}
