@@ -26,6 +26,11 @@ class NavooApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: navooTheme(),
         navigatorKey: navKey,
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          final scale = mq.textScaler.scale(1).clamp(1.0, 1.15);
+          return MediaQuery(data: mq.copyWith(textScaler: TextScaler.linear(scale)), child: child!);
+        },
         home: const Root(),
       );
 }

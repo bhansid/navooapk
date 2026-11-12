@@ -72,7 +72,7 @@ class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
     final noticed = (r?['noticed'] is List) ? (r!['noticed'] as List).map((e) => '$e').toList() : <String>[];
     return NavooScaffold(
       body: loading
-          ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 14), Text('Looking at your week...', style: T.sub)]))
+          ? const NavooThinking(lines: ['Looking at your week...', 'Noticing what helped...', 'Spotting patterns...'])
           : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
               const Text('WEEKLY REVIEW', style: T.label),
               const SizedBox(height: 6),
@@ -249,7 +249,7 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
   @override
   Widget build(BuildContext context) => NavooScaffold(
         body: loading
-            ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 14), Text('Adjusting your next steps...', style: T.sub)]))
+            ? const NavooThinking(lines: ['Learning from this week...', 'Adjusting the approach, not the goal...', 'Choosing your next small steps...'])
             : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
                 const Text('NEXT WEEK', style: T.label),
                 const SizedBox(height: 6),

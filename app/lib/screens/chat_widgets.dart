@@ -108,15 +108,10 @@ class QuickChoices extends StatelessWidget {
           ),
         );
     if (grid) {
-      return GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 2.3,
-        children: choices.map(chip).toList(),
-      );
+      return LayoutBuilder(builder: (context, c) {
+        final w = (c.maxWidth - 10) / 2;
+        return Wrap(spacing: 10, runSpacing: 10, children: choices.map((q) => SizedBox(width: w, child: chip(q))).toList());
+      });
     }
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start,

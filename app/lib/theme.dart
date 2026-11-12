@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -302,4 +303,89 @@ void toast(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, backgroundColor: NC.navy));
+}
+
+/// Navoo "thinking" animation: the mark breathing with orbiting dots and rotating lines.
+class NavooThinking extends StatefulWidget {
+  final List<String> lines;
+  const NavooThinking({super.key, this.lines = const [
+    "Looking at what you've told me...",
+    'Matching steps to your real day...',
+    'Using behavioural science to make this easier...',
+    'Keeping it small and doable...',
+  ]});
+  @override
+  State<NavooThinking> createState() => _NavooThinkingState();
+}
+
+class _NavooThinkingState extends State<NavooThinking> with SingleTickerProviderStateMixin {
+  late final AnimationController c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))..repeat();
+  int line = 0;
+  @override
+  void initState() {
+    super.initState();
+    c.addStatusListener((_) {});
+    _tick();
+  }
+
+  Future<void> _tick() async {
+    while (mounted) {
+      await Future.delayed(const Duration(milliseconds: 2200));
+      if (mounted) setState(() => line = (line + 1) % widget.lines.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(
+              width: 170,
+              height: 170,
+              child: AnimatedBuilder(
+                animation: c,
+                builder: (_, __) {
+                  final t = c.value * 2 * 3.14159265;
+                  final pulse = 1 + 0.06 * (1 + math.sin(t * 2)) / 2;
+                  final dots = <Widget>[];
+                  const colors = [NC.blue, NC.sage, Color(0xFFF2C14E)];
+                  for (var i = 0; i < 3; i++) {
+                    final a = t + i * 2.094;
+                    dots.add(Positioned(
+                      left: 85 + 70 * math.cos(a) - 7,
+                      top: 85 + 70 * math.sin(a) - 7,
+                      child: Container(width: 14, height: 14, decoration: BoxDecoration(color: colors[i], shape: BoxShape.circle)),
+                    ));
+                  }
+                  return Stack(children: [
+                    Positioned.fill(
+                      child: Center(
+                        child: Container(
+                          width: 120 * pulse,
+                          height: 120 * pulse,
+                          decoration: BoxDecoration(color: NC.blueTint.withValues(alpha: 0.8), shape: BoxShape.circle),
+                        ),
+                      ),
+                    ),
+                    Center(child: Transform.scale(scale: pulse, child: const NavooMark(size: 64))),
+                    ...dots,
+                  ]);
+                },
+              ),
+            ),
+            const SizedBox(height: 26),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: Text(widget.lines[line], key: ValueKey(line), textAlign: TextAlign.center, style: T.sub),
+            ),
+          ]),
+        ),
+      );
 }

@@ -113,7 +113,7 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
     return NavooScaffold(
       step: 5,
       body: loading
-          ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Choosing your first steps...', style: T.sub)]))
+          ? const NavooThinking()
           : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), children: [
               const NavooLogo(height: 28),
               const SizedBox(height: 16),
@@ -205,7 +205,7 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
       );
 }
 
-/// Screen 18 — If/Then. The user drafts first; the coach only tightens it.
+/// Screen 18 — If/Then, made easy: tap a moment, the action is pre-filled, everything else is optional.
 class IfThenScreen extends StatefulWidget {
   final bool fromHome;
   const IfThenScreen({super.key, this.fromHome = false});
@@ -217,51 +217,62 @@ class _IfThenScreenState extends State<IfThenScreen> {
   final s = AppState.I;
   late final a = s.currentAction!;
   late final ifC = TextEditingController(text: a.ifCue);
-  late final thenC = TextEditingController(text: a.thenDo);
+  late final thenC = TextEditingController(text: a.thenDo.isNotEmpty ? a.thenDo : _defaultThen());
   late final bIfC = TextEditingController(text: a.backupIf);
   late final bThenC = TextEditingController(text: a.backupThen);
   late final setupC = TextEditingController(text: a.setup);
   bool busy = false;
   String comment = '';
 
-  Future<void> improve() async {
-    if (ifC.text.trim().isEmpty || thenC.text.trim().isEmpty) {
-      toast(context, 'Have a go at your own IF and THEN first. I\'ll help tidy it up.');
-      return;
-    }
+  static const moments = [
+    'I finish my morning coffee',
+    'I sit down for lunch',
+    'I get home from work',
+    'I finish dinner',
+    'I put the kids to bed',
+    'I sit down on the sofa',
+  ];
+
+  String _defaultThen() {
+    final t = a.title.trim();
+    if (t.isEmpty) return '';
+    return "I'll ${t[0].toLowerCase()}${t.substring(1)}";
+  }
+
+  String _defaultIf() => switch (a.timing) {
+        'hour' => 'I finish what I\'m doing now',
+        'today' => 'I get a free moment today',
+        _ => 'I have a quiet moment in the next few days',
+      };
+
+  Future<void> suggest() async {
     setState(() => busy = true);
     final r = await Coach.task('improve_ifthen', {
       'action': a.title,
       'if': ifC.text,
       'then': thenC.text,
-      'backup_if': bIfC.text,
-      'backup_then': bThenC.text,
-      'setup': setupC.text,
+      'note': ifC.text.trim().isEmpty ? 'The user has not picked a moment yet. Suggest a realistic one from what you know about them.' : '',
       'obstacles': s.obstaclesText,
     });
     if (!mounted) return;
     setState(() {
       busy = false;
       if (r != null) {
-        if ('${r['if'] ?? ''}'.isNotEmpty) ifC.text = '${r['if']}';
-        if ('${r['then'] ?? ''}'.isNotEmpty) thenC.text = '${r['then']}';
-        if ('${r['backup_if'] ?? ''}'.isNotEmpty) bIfC.text = '${r['backup_if']}';
-        if ('${r['backup_then'] ?? ''}'.isNotEmpty) bThenC.text = '${r['backup_then']}';
+        if ('${r['if'] ?? ''}'.isNotEmpty) ifC.text = _clean('${r['if']}', 'if');
+        if ('${r['then'] ?? ''}'.isNotEmpty) thenC.text = _clean('${r['then']}', 'then');
+        if ('${r['backup_if'] ?? ''}'.isNotEmpty) bIfC.text = _clean('${r['backup_if']}', 'if');
+        if ('${r['backup_then'] ?? ''}'.isNotEmpty) bThenC.text = _clean('${r['backup_then']}', 'then');
         if (setupC.text.trim().isEmpty && '${r['setup'] ?? ''}'.isNotEmpty) setupC.text = '${r['setup']}';
         comment = '${r['comment'] ?? ''}';
       } else {
-        comment = "I couldn't reach the coach just now, but your plan is saved as you wrote it.";
+        comment = "I couldn't reach the coach just now. Pick a moment above and you're set.";
       }
     });
   }
 
   Future<void> lockIn() async {
-    if (ifC.text.trim().isEmpty || thenC.text.trim().isEmpty) {
-      toast(context, 'Add your IF and THEN so we can lock this in.');
-      return;
-    }
-    a.ifCue = _clean(ifC.text, 'if');
-    a.thenDo = _clean(thenC.text, 'then');
+    a.ifCue = ifC.text.trim().isEmpty ? _defaultIf() : _clean(ifC.text, 'if');
+    a.thenDo = thenC.text.trim().isEmpty ? _defaultThen() : _clean(thenC.text, 'then');
     a.backupIf = _clean(bIfC.text, 'if');
     a.backupThen = _clean(bThenC.text, 'then');
     a.setup = setupC.text.trim();
@@ -281,75 +292,78 @@ class _IfThenScreenState extends State<IfThenScreen> {
   String _clean(String t, String word) {
     var x = t.trim();
     if (x.toLowerCase().startsWith('$word ')) x = x.substring(word.length + 1);
+    if (x.endsWith('.')) x = x.substring(0, x.length - 1);
     return x;
   }
 
-  Widget _pair(String title, Color tint, TextEditingController a1, String h1, TextEditingController a2, String h2, {Key? k1, Key? k2}) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: T.label),
-          const SizedBox(height: 12),
-          _line('IF', a1, h1, k1),
-          const SizedBox(height: 10),
-          _line('THEN', a2, h2, k2),
-        ]),
-      );
-
-  Widget _line(String tag, TextEditingController c, String hint, Key? k) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 64,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: tag == 'IF' ? NC.sageTint : NC.blueTint, borderRadius: BorderRadius.circular(14)),
-          child: Text(tag, style: TextStyle(fontWeight: FontWeight.w700, color: tag == 'IF' ? NC.success : NC.blue)),
+  Widget _optional(String title, IconData icon, Color tint, List<Widget> children) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(18)),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: Icon(icon, color: NC.navy),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: NC.navy, fontSize: 15.5)),
+            subtitle: const Text('Optional', style: T.small),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: children,
+          ),
         ),
-        const SizedBox(width: 10),
-        Expanded(child: TextField(key: k, controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(hintText: hint))),
-      ]);
+      );
 
   @override
   Widget build(BuildContext context) => NavooScaffold(
         step: widget.fromHome ? null : 5,
         body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-          const Text('Plan the moment', style: T.h1),
+          const Text('When will you do it?', style: T.h1),
           const SizedBox(height: 8),
-          Text('For "${a.title}". Decide now what you\'ll do when the moment comes, in your own words.', style: T.sub),
-          const SizedBox(height: 14),
+          Text('Link "${a.title}" to a moment that already happens in your day. Tap one, or write your own.', style: T.sub),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final m in moments)
+              ChoiceChip(
+                label: Text(m),
+                selected: ifC.text.trim().toLowerCase() == m.toLowerCase(),
+                showCheckmark: false,
+                selectedColor: NC.blue,
+                backgroundColor: NC.blueTint,
+                side: BorderSide.none,
+                shape: const StadiumBorder(),
+                labelStyle: TextStyle(color: ifC.text.trim().toLowerCase() == m.toLowerCase() ? Colors.white : NC.navy, fontSize: 14.5),
+                onSelected: (_) => setState(() => ifC.text = m),
+              ),
+          ]),
+          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: NC.sageTint, borderRadius: BorderRadius.circular(16)),
-            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.science_outlined, color: NC.success),
-              SizedBox(width: 10),
-              Expanded(child: Text('People who decide "if this happens, then I\'ll do that" in advance follow through more often.', style: T.body)),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: NC.border)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('IF', style: TextStyle(fontWeight: FontWeight.w700, color: NC.success, letterSpacing: 1.2)),
+              TextField(
+                key: const Key('if_cue'),
+                controller: ifC,
+                onChanged: (_) => setState(() {}),
+                minLines: 1,
+                maxLines: 3,
+                decoration: const InputDecoration(hintText: 'Pick a moment above or type your own', filled: false, border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                style: const TextStyle(fontSize: 17, color: NC.navy),
+              ),
+              const Divider(color: NC.border),
+              const Text('THEN', style: TextStyle(fontWeight: FontWeight.w700, color: NC.blue, letterSpacing: 1.2)),
+              TextField(
+                key: const Key('then_do'),
+                controller: thenC,
+                minLines: 1,
+                maxLines: 3,
+                decoration: const InputDecoration(filled: false, border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                style: const TextStyle(fontSize: 17, color: NC.navy),
+              ),
             ]),
           ),
           const SizedBox(height: 10),
-          const Text('Example: IF I finish my morning coffee, THEN I\'ll save 3 healthy recipes.', style: T.small),
-          const SizedBox(height: 16),
-          _pair('YOUR ACTION PLAN', Colors.white, ifC, 'e.g. I finish my morning coffee', thenC, 'e.g. I\'ll save 3 healthy recipes',
-              k1: const Key('if_cue'), k2: const Key('then_do')),
-          const SizedBox(height: 12),
-          _pair('YOUR BACKUP PLAN (FOR WHEN LIFE GETS IN THE WAY)', NC.warmTint, bIfC, 'e.g. I get distracted or run out of time', bThenC,
-              'e.g. I\'ll use my one go-to recipe'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: NC.lilacTint, borderRadius: BorderRadius.circular(20)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('SET UP YOUR SURROUNDINGS', style: T.label),
-              const SizedBox(height: 6),
-              const Text('What could you set up around you to make this easier?', style: T.body),
-              const SizedBox(height: 10),
-              TextField(controller: setupC, minLines: 1, maxLines: 3, decoration: const InputDecoration(hintText: 'e.g. a note on the fridge, recipes app on my home screen')),
-            ]),
-          ),
-          const SizedBox(height: 12),
-          if (s.reward.isNotEmpty)
-            InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Straight after, your reward', title: s.reward),
+          SoftButton(busy ? 'Thinking...' : 'Suggest one for me', icon: Icons.auto_awesome_outlined, onPressed: busy ? null : suggest),
           if (comment.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: NC.blueTint, borderRadius: BorderRadius.circular(16)),
@@ -360,9 +374,26 @@ class _IfThenScreenState extends State<IfThenScreen> {
               ]),
             ),
           ],
-          const SizedBox(height: 18),
-          SoftButton(busy ? 'Thinking...' : 'Help me tighten this', icon: Icons.auto_awesome_outlined, onPressed: busy ? null : improve),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          _optional('Add a backup plan', Icons.sync, NC.warmTint, [
+            const Text('For when life gets in the way.', style: T.small),
+            const SizedBox(height: 10),
+            TextField(controller: bIfC, decoration: const InputDecoration(labelText: 'If...', hintText: 'I run out of time or energy')),
+            const SizedBox(height: 10),
+            TextField(controller: bThenC, decoration: const InputDecoration(labelText: 'Then...', hintText: 'I\'ll do a 2-minute version')),
+          ]),
+          _optional('Make it easier around you', Icons.home_outlined, NC.lilacTint, [
+            const Text('A small change to your surroundings, like a note on the fridge.', style: T.small),
+            const SizedBox(height: 10),
+            TextField(controller: setupC, minLines: 1, maxLines: 3, decoration: const InputDecoration(hintText: 'e.g. trainers by the door')),
+          ]),
+          const SizedBox(height: 4),
+          const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.science_outlined, color: NC.success, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text('Linking an action to a moment you already have makes it far easier to remember and do.', style: T.small)),
+          ]),
+          const SizedBox(height: 16),
           PrimaryButton('Lock this in', trailingArrow: true, onPressed: lockIn, testKey: const Key('ifthen_lock')),
         ]),
       );

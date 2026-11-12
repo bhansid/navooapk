@@ -148,8 +148,7 @@ void main() {
     await waitFor(find.byKey(const Key('steps_continue')), secs: 90);
     await shot('16_first_steps');
     await tap(find.byKey(const Key('steps_continue')));
-    await type(find.byKey(const Key('if_cue')), 'I finish my morning coffee');
-    await type(find.byKey(const Key('then_do')), "I'll save 3 healthy dinner recipes");
+    await tap(find.text('I get home from work'));
     FocusManager.instance.primaryFocus?.unfocus();
     await shot('17_if_then');
     await tap(find.byKey(const Key('ifthen_lock')));
