@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../api.dart';
 import '../device.dart';
@@ -36,6 +37,19 @@ class _MeTabState extends State<MeTab> {
     if (mounted) setState(() {});
   }
 
+  Future<void> pickPhoto() async {
+    try {
+      final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 600, imageQuality: 85);
+      if (x == null) return;
+      final dir = await getApplicationDocumentsDirectory();
+      final f = await File(x.path).copy('${dir.path}/navoo_profile_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      s.photoPath = f.path;
+      await s.save();
+    } catch (_) {
+      if (mounted) toast(context, 'Could not open your photos.');
+    }
+  }
+
   void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
 
   @override
@@ -49,11 +63,28 @@ class _MeTabState extends State<MeTab> {
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(color: NC.blueTint.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(22)),
             child: Row(children: [
-              CircleAvatar(
-                radius: 34,
-                backgroundColor: NC.blue,
-                child: Text(s.firstName.isEmpty ? '?' : s.firstName[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+              GestureDetector(
+                onTap: pickPhoto,
+                child: Stack(children: [
+                  CircleAvatar(
+                    radius: 34,
+                    backgroundColor: NC.blue,
+                    backgroundImage: s.photoPath != null && File(s.photoPath!).existsSync() ? FileImage(File(s.photoPath!)) : null,
+                    child: s.photoPath != null && File(s.photoPath!).existsSync()
+                        ? null
+                        : Text(s.firstName.isEmpty ? '?' : s.firstName[0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: const Icon(Icons.photo_camera_outlined, size: 16, color: NC.blue),
+                    ),
+                  ),
+                ]),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -316,11 +347,17 @@ class _NudgeSettingsScreenState extends State<NudgeSettingsScreen> {
           ),
           const Divider(),
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('TYPES OF NUDGES', style: T.label)),
-          _sw('Your own words', 'Your If/Then plan, played back at the right moment', s.nudgeOwnWords, (v) => s.nudgeOwnWords = v),
+          _sw('Your own words', 'Your own If/Then words, played back at the right moment', s.nudgeOwnWords, (v) => s.nudgeOwnWords = v),
           _sw('Encouragement', 'A reminder of who you are becoming', s.nudgeEncouragement, (v) => s.nudgeEncouragement = v),
           _sw('Quick tips', 'Small tricks that make the next step easier', s.nudgeTips, (v) => s.nudgeTips = v),
           _sw('Progress insights', 'What Navoo has noticed about what works for you', s.nudgeProgress, (v) => s.nudgeProgress = v),
           _sw('Weekly check-in', 'A reminder at your chosen check-in time', s.nudgeWeekly, (v) => s.nudgeWeekly = v),
+          const Divider(),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('GENTLE WELLBEING REMINDERS (OPTIONAL)', style: T.label)),
+          const Text('Simple prompts through the day. They are just reminders and never count against you.', style: T.small),
+          _sw('Drink water', 'A few times a day', s.wellWater, (v) => s.wellWater = v),
+          _sw('Stretch break', 'Late morning and mid-afternoon', s.wellStretch, (v) => s.wellStretch = v),
+          _sw('Short walk', 'After lunch and early evening', s.wellWalk, (v) => s.wellWalk = v),
         ]),
       );
 }

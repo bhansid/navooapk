@@ -223,6 +223,36 @@ class _IfThenScreenState extends State<IfThenScreen> {
   late final setupC = TextEditingController(text: a.setup);
   bool busy = false;
   String comment = '';
+  List<Map<String, String>> ideas = [];
+  bool ideasLoading = true;
+  late int trigH = a.triggerHour;
+  late int trigM = a.triggerMinute;
+
+  @override
+  void initState() {
+    super.initState();
+    Coach.task('ifthen_suggestions', {
+      'action': a.title,
+      'timing': a.timing,
+      'obstacles': s.obstaclesText,
+      'routine_and_life': s.coachProfile()['basics'],
+      'learned': s.learnings,
+    }).then((r) {
+      final l = (r?['suggestions'] is List) ? (r!['suggestions'] as List).whereType<Map>().map((m) => {'if': _clean('${m['if'] ?? ''}', 'if'), 'then': _clean('${m['then'] ?? ''}', 'then')}).where((m) => m['if']!.isNotEmpty).take(3).toList() : <Map<String, String>>[];
+      if (mounted) setState(() {
+        ideas = l;
+        ideasLoading = false;
+      });
+    });
+  }
+
+  Future<void> pickTime() async {
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: trigH >= 0 ? trigH : 18, minute: trigM), helpText: 'ROUGHLY WHAT TIME IS THAT?');
+    if (t != null) setState(() {
+      trigH = t.hour;
+      trigM = t.minute;
+    });
+  }
 
   static const moments = [
     'I finish my morning coffee',
@@ -276,6 +306,8 @@ class _IfThenScreenState extends State<IfThenScreen> {
     a.backupIf = _clean(bIfC.text, 'if');
     a.backupThen = _clean(bThenC.text, 'then');
     a.setup = setupC.text.trim();
+    a.triggerHour = trigH;
+    a.triggerMinute = trigM;
     await s.save();
     Coach.task('nudges', {'action': a.title, 'if': a.ifCue, 'then': a.thenDo, 'identity': s.identity}).then((r) {
       final list = (r?['nudges'] is List) ? (r!['nudges'] as List).whereType<Map>().map((m) => {'type': '${m['type']}', 'text': '${m['text']}'}).toList() : <Map<String, String>>[];
@@ -317,22 +349,51 @@ class _IfThenScreenState extends State<IfThenScreen> {
         body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
           const Text('When will you do it?', style: T.h1),
           const SizedBox(height: 8),
-          Text('Link "${a.title}" to a moment that already happens in your day. Tap one, or write your own.', style: T.sub),
+          Text('Link "${a.title}" to a moment that already happens in your day. Pick one of my ideas, or write your own.', style: T.sub),
           const SizedBox(height: 16),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final m in moments)
-              ChoiceChip(
-                label: Text(m),
-                selected: ifC.text.trim().toLowerCase() == m.toLowerCase(),
-                showCheckmark: false,
-                selectedColor: NC.blue,
-                backgroundColor: NC.blueTint,
-                side: BorderSide.none,
-                shape: const StadiumBorder(),
-                labelStyle: TextStyle(color: ifC.text.trim().toLowerCase() == m.toLowerCase() ? Colors.white : NC.navy, fontSize: 14.5),
-                onSelected: (_) => setState(() => ifC.text = m),
-              ),
-          ]),
+          const Text('IDEAS BASED ON WHAT YOU TOLD ME', style: T.label),
+          const SizedBox(height: 10),
+          if (ideasLoading)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Row(children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 12), Text('Thinking of ideas that fit your day...', style: T.small)]))
+          else if (ideas.isNotEmpty)
+            for (var k = 0; k < ideas.length; k++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: ifC.text == ideas[k]['if'] ? NC.blueTint : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    key: Key('idea_$k'),
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => setState(() {
+                      ifC.text = ideas[k]['if']!;
+                      thenC.text = ideas[k]['then']!.isNotEmpty ? ideas[k]['then']! : thenC.text;
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(children: [
+                        const Icon(Icons.auto_awesome_outlined, color: NC.blue, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text('If ${ideas[k]['if']}, then ${ideas[k]['then']}.', style: const TextStyle(fontSize: 15.5, color: NC.navy, height: 1.35))),
+                      ]),
+                    ),
+                  ),
+                ),
+              )
+          else
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final m in moments)
+                ActionChip(
+                  label: Text(m),
+                  backgroundColor: NC.blueTint,
+                  side: BorderSide.none,
+                  shape: const StadiumBorder(),
+                  labelStyle: const TextStyle(color: NC.navy, fontSize: 14.5),
+                  onPressed: () => setState(() => ifC.text = m),
+                ),
+            ]),
+          const SizedBox(height: 10),
+          const Text('YOUR OWN WORDS (EDIT FREELY)', style: T.label),
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(16),
@@ -361,7 +422,20 @@ class _IfThenScreenState extends State<IfThenScreen> {
             ]),
           ),
           const SizedBox(height: 10),
-          SoftButton(busy ? 'Thinking...' : 'Suggest one for me', icon: Icons.auto_awesome_outlined, onPressed: busy ? null : suggest),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: NC.border)),
+              leading: const Icon(Icons.notifications_active_outlined, color: NC.blue),
+              title: Text(trigH >= 0 ? 'Nudge me around ${trigH % 12 == 0 ? 12 : trigH % 12}:${trigM.toString().padLeft(2, '0')} ${trigH < 12 ? 'AM' : 'PM'}' : 'Roughly what time is that?', style: const TextStyle(color: NC.navy, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Optional. I\'ll send your own words at that moment.', style: T.small),
+              trailing: trigH >= 0 ? IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() => trigH = -1)) : const Icon(Icons.chevron_right),
+              onTap: pickTime,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SoftButton(busy ? 'Thinking...' : 'Tidy it up for me', icon: Icons.auto_awesome_outlined, onPressed: busy ? null : suggest),
           if (comment.isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
@@ -375,7 +449,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
             ),
           ],
           const SizedBox(height: 16),
-          _optional('Add a backup plan', Icons.sync, NC.warmTint, [
+          _optional('Add a backup option', Icons.sync, NC.warmTint, [
             const Text('For when life gets in the way.', style: T.small),
             const SizedBox(height: 10),
             TextField(controller: bIfC, decoration: const InputDecoration(labelText: 'If...', hintText: 'I run out of time or energy')),
@@ -489,7 +563,7 @@ class ActionDetailScreen extends StatelessWidget {
         const SizedBox(height: 22),
         PrimaryButton('Done', icon: Icons.check_circle, pressable3d: true, testKey: const Key('detail_done'), onPressed: () => completeAction(context)),
         const SizedBox(height: 12),
-        SoftButton('Plan the moment (If/Then)', icon: Icons.edit_outlined,
+        SoftButton('Change when I do it', icon: Icons.edit_outlined,
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)))),
         const SizedBox(height: 10),
         SoftButton('Talk to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () => openCoach(context, preset: "I'm working on: ${a.title}. ")),
@@ -708,7 +782,7 @@ class NudgeScreen extends StatelessWidget {
               const SizedBox(height: 24),
               Text(a.ifCue.isNotEmpty ? 'If ${a.ifCue}, then ${a.thenDo}.' : a.title, textAlign: TextAlign.center, style: T.h2),
               const SizedBox(height: 10),
-              const Text('Your own plan, in your own words.', style: T.sub),
+              const Text('In your own words.', style: T.sub),
               const SizedBox(height: 22),
               InfoCard(icon: iconFor(a.title), tint: NC.sageTint, iconColor: NC.success, label: 'Your next step', title: a.title, subtitle: 'A small step towards your 30-day focus.'),
             ],

@@ -148,7 +148,13 @@ void main() {
     await waitFor(find.byKey(const Key('steps_continue')), secs: 90);
     await shot('16_first_steps');
     await tap(find.byKey(const Key('steps_continue')));
-    await tap(find.text('I get home from work'));
+    await wait(6000);
+    if (find.byKey(const Key('idea_0')).evaluate().isNotEmpty) {
+      await tap(find.byKey(const Key('idea_0')));
+    } else {
+      await type(find.byKey(const Key('if_cue')), 'I get home from work');
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
     FocusManager.instance.primaryFocus?.unfocus();
     await shot('17_if_then');
     await tap(find.byKey(const Key('ifthen_lock')));

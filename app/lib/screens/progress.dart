@@ -114,6 +114,10 @@ class _ProgressTabState extends State<ProgressTab> {
           ]),
         ),
         const SizedBox(height: 12),
+        if (s.bestTime != null) ...[
+          InfoCard(icon: Icons.schedule, tint: NC.blueTint, iconColor: NC.blue, label: 'When I follow through best', title: s.bestTime!),
+          const SizedBox(height: 12),
+        ],
         if (s.obstaclesLogistical.isNotEmpty || s.obstaclesPsychological.isNotEmpty) ...[
           InfoCard(
               icon: Icons.warning_amber_rounded,

@@ -129,6 +129,9 @@ User data: ${JSON.stringify(d)}`,
   improve_ifthen: (d) => `The user drafted an If/Then plan themselves. Keep their words and idea; only tighten it so the IF is a clear cue and the THEN a small, specific action. If it's already good, keep it. Also suggest one environment/setup idea if they gave none.
 Return JSON {"if": "...", "then": "...", "backup_if": "...", "backup_then": "...", "setup": "...", "comment": "one short, calm sentence to the user (no hype)"}.
 Draft: ${JSON.stringify(d)}`,
+  ifthen_suggestions: (d) => `Suggest 3 short, personal If/Then options for the user's action, built from what you know about their routine, energy and obstacles. IF = a moment that already happens in their day (no "if" word). THEN = the small action, starting "I'll" (no "then" word). Max 12 words each. Realistic and kind; avoid times they find hard.
+Return JSON {"suggestions": [{"if": "...", "then": "..."}]}.
+Data: ${JSON.stringify(d)}`,
   weekly_review: (d) => `Run the end-of-week calibration. Use the week's data (completed and missed actions, how they felt, what the user said got in the way). Never frame slip-ups as failure and don't over-celebrate them as success; treat them as useful information. Keep the same goal; change the approach.
 Return JSON {"went_well": [{"title": "short", "detail": "one line"}], "noticed": ["1-2 factual observations from the data"], "learned": ["1-3 short learnings about what got in the way"], "factors": ["choose from: Energy, Time, Environment, Emotional trigger, Preparation, Motivation"], "headline_learning": "one sentence", "next_actions": [{"title": "max 6 words", "description": "one line", "why": "one sentence", "minutes": number}]} with exactly 3 next_actions.
 Week data: ${JSON.stringify(d)}`,

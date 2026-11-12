@@ -226,7 +226,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         setState(() {
           busy = false;
           items.removeWhere((i) => i.kind == _K.loading);
-          _coach("That's useful to know. We'll plan around it rather than hoping it won't happen.");
+          _coach("That's useful to know. We'll work around it rather than hoping it won't happen.");
           _coach("If you succeed at this, what does that say about the person you're becoming?");
           step = 'identity';
         });

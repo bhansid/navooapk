@@ -92,6 +92,18 @@ class Device {
         }
         if (texts.isEmpty && s.nudgeOwnWords && a.ifCue.isNotEmpty) texts.add('If ${a.ifCue}, then ${a.thenDo}.');
         if (texts.isEmpty) texts.add('Your next step: ${a.title}. It only takes a few minutes.');
+        if (a.triggerHour >= 0 && s.nudgeOwnWords && !_quiet(a.triggerHour, s)) {
+          await _notes.zonedSchedule(
+            50,
+            'Navoo',
+            a.ifCue.isNotEmpty ? 'If ${a.ifCue}, then ${a.thenDo}.' : 'Time for: ${a.title}',
+            _next(a.triggerHour, a.triggerMinute),
+            _details,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            matchDateTimeComponents: DateTimeComponents.time,
+          );
+        }
         for (var i = 0; i < hours.length; i++) {
           final h = hours[i];
           if (_quiet(h, s)) continue;
@@ -104,6 +116,28 @@ class Device {
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
             uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
             matchDateTimeComponents: s.nudgeFrequency == 'A few times a week' ? DateTimeComponents.dayOfWeekAndTime : DateTimeComponents.time,
+          );
+        }
+      }
+      // Optional wellbeing reminders (off by default; never counted as progress).
+      final well = <List<Object>>[
+        if (s.wellWater) [200, [10, 12, 14, 16, 18], 'A glass of water', 'A quick glass of water now. Small things add up.'],
+        if (s.wellStretch) [220, [11, 15], 'Stretch break', 'Stand up and stretch for a minute.'],
+        if (s.wellWalk) [240, [13, 17], 'A short walk', 'Fancy a 5-minute walk? Even round the block counts.'],
+      ];
+      for (final w in well) {
+        var wid = w[0] as int;
+        for (final h in (w[1] as List<int>)) {
+          if (_quiet(h, s)) continue;
+          await _notes.zonedSchedule(
+            wid++,
+            w[2] as String,
+            w[3] as String,
+            _next(h, 0),
+            _details,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            matchDateTimeComponents: DateTimeComponents.time,
           );
         }
       }

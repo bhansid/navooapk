@@ -27,6 +27,8 @@ class MicroAction {
   String? feeling;
   DateTime? doneAt;
   int week;
+  int triggerHour;
+  int triggerMinute;
   MicroAction({
     required this.id,
     required this.title,
@@ -43,6 +45,8 @@ class MicroAction {
     this.feeling,
     this.doneAt,
     this.week = 1,
+    this.triggerHour = -1,
+    this.triggerMinute = 0,
   });
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -60,6 +64,8 @@ class MicroAction {
         'feeling': feeling,
         'doneAt': doneAt?.toIso8601String(),
         'week': week,
+        'triggerHour': triggerHour,
+        'triggerMinute': triggerMinute,
       };
   static MicroAction fromJson(Map<String, dynamic> j) => MicroAction(
         id: j['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
@@ -77,6 +83,8 @@ class MicroAction {
         feeling: j['feeling'],
         doneAt: DateTime.tryParse(j['doneAt'] ?? ''),
         week: (j['week'] is num) ? (j['week'] as num).toInt() : 1,
+        triggerHour: (j['triggerHour'] is num) ? (j['triggerHour'] as num).toInt() : -1,
+        triggerMinute: (j['triggerMinute'] is num) ? (j['triggerMinute'] as num).toInt() : 0,
       );
 }
 
@@ -151,6 +159,10 @@ class AppState extends ChangeNotifier {
   int quietTo = 7;
   int nudgeHour = 9;
   bool personalisedCoaching = true;
+  bool wellWater = false;
+  bool wellStretch = false;
+  bool wellWalk = false;
+  String? photoPath;
 
   MicroAction? get currentAction {
     for (final a in actions) {
@@ -165,6 +177,24 @@ class AppState extends ChangeNotifier {
   int get focusDay {
     if (focusStart == null) return 1;
     return DateTime.now().difference(focusStart!).inDays + 1;
+  }
+
+  /// When the user usually follows through, from completed actions.
+  String? get bestTime {
+    final hours = done.where((a) => a.doneAt != null).map((a) => a.doneAt!.hour).toList();
+    if (hours.length < 2) return null;
+    final buckets = <String, int>{'Mornings': 0, 'Afternoons': 0, 'Evenings': 0};
+    for (final h in hours) {
+      if (h < 12) {
+        buckets['Mornings'] = buckets['Mornings']! + 1;
+      } else if (h < 17) {
+        buckets['Afternoons'] = buckets['Afternoons']! + 1;
+      } else {
+        buckets['Evenings'] = buckets['Evenings']! + 1;
+      }
+    }
+    final best = buckets.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    return '${best.key} (${best.value} of ${hours.length} actions)';
   }
 
   bool get focusComplete => focusStart != null && focusDay > 30;
@@ -217,6 +247,7 @@ class AppState extends ChangeNotifier {
           'lifestyle': lifestyle,
         },
         'week_number': week,
+        'best_time_to_act': bestTime,
       };
 
   void addLearnings(List<String> l) {
@@ -286,6 +317,10 @@ class AppState extends ChangeNotifier {
         'quietTo': quietTo,
         'nudgeHour': nudgeHour,
         'personalisedCoaching': personalisedCoaching,
+        'wellWater': wellWater,
+        'wellStretch': wellStretch,
+        'wellWalk': wellWalk,
+        'photoPath': photoPath,
       };
 
   List<String> _ls(dynamic v) => v is List ? v.map((e) => e.toString()).toList() : <String>[];
@@ -347,6 +382,10 @@ class AppState extends ChangeNotifier {
     quietTo = j['quietTo'] ?? 7;
     nudgeHour = j['nudgeHour'] ?? 9;
     personalisedCoaching = j['personalisedCoaching'] ?? true;
+    wellWater = j['wellWater'] ?? false;
+    wellStretch = j['wellStretch'] ?? false;
+    wellWalk = j['wellWalk'] ?? false;
+    photoPath = j['photoPath'];
   }
 
   // ---- persistence (one record per account email) ----
