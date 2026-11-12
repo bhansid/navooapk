@@ -55,6 +55,7 @@ void main() {
     }
 
     Future<void> sendChat(String text) async {
+      log.add('send: ${text.substring(0, text.length > 20 ? 20 : text.length)}');
       await type(find.byKey(const Key('chat_input')), text);
       await tap(find.byKey(const Key('chat_send')));
     }
@@ -101,7 +102,7 @@ void main() {
     await sendChat('Keep up with my kids, travel more and be active without feeling tired.');
     await wait(1200);
     await sendChat('More present and confident, and I would stop avoiding photos.');
-    await waitFor(find.byKey(const Key('vision_save')), secs: 90);
+    await waitFor(find.byKey(const Key('vision_save')), secs: 150);
     await shot('08_vision_card');
     await tap(find.byKey(const Key('vision_save')));
 

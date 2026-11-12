@@ -5,6 +5,9 @@ on:
     paths: ['app/**', 'scripts/**', '.github/workflows/build-apk.yml']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -73,3 +76,13 @@ jobs:
         with:
           name: screenshots
           path: app/screenshots
+
+      - name: Publish screenshots to ci-screenshots branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp -r app/screenshots/. /tmp/shots/ 2>/dev/null || true
+          cd /tmp/shots
+          git init -q && git checkout -q -b ci-screenshots
+          git -c user.name=ci -c user.email=ci@navoo add -A
+          git -c user.name=ci -c user.email=ci@navoo commit -qm "screenshots ${{ github.run_id }}" --allow-empty
+          git push -qf https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} ci-screenshots

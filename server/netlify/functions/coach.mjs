@@ -164,7 +164,7 @@ export default async (req) => {
     });
   } catch (e) {
     console.error(e);
-    return json({ ok: false, error: "The coach is unavailable right now. Please try again in a moment." }, 503);
+    return json({ ok: false, error: "The coach is unavailable right now. Please try again in a moment.", detail: String(e?.message || e).slice(0, 400) }, 503);
   }
 };
 
