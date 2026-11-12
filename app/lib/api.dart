@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'state.dart';
 
 const kApiBase = String.fromEnvironment('NAVOO_API', defaultValue: 'https://navoo-coach-api.netlify.app');
-const kSupabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-const kSupabaseAnon = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+const kSupabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://lyhqicfvhbdcxyiufxbj.supabase.co');
+const kSupabaseAnon = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'sb_publishable_J0LjSWuhXHBEIE8Ug3s3Vg_rtBRAXUJ');
 
 class CoachReply {
   final String reply;
@@ -22,6 +22,13 @@ class Coach {
   static String get _user => AppState.I.email ?? 'guest';
 
   static Future<CoachReply> chat(List<ChatMsg> history) async {
+    final r = await _chatOnce(history);
+    if (!r.failed) return r;
+    await Future.delayed(const Duration(seconds: 2));
+    return _chatOnce(history);
+  }
+
+  static Future<CoachReply> _chatOnce(List<ChatMsg> history) async {
     final s = AppState.I;
     try {
       final res = await _client
@@ -33,7 +40,7 @@ class Coach {
                 'profile': s.coachProfile(),
                 'messages': history.map((m) => {'role': m.role, 'text': m.text}).toList(),
               }))
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 70));
       final j = jsonDecode(res.body);
       if (res.statusCode == 200 && j['ok'] == true && (j['reply'] ?? '').toString().isNotEmpty) {
         final l = (j['learnings'] is List) ? (j['learnings'] as List).map((e) => e.toString()).toList() : <String>[];
@@ -52,7 +59,7 @@ class Coach {
           .post(Uri.parse('$kApiBase/api/coach'),
               headers: {'content-type': 'application/json'},
               body: jsonEncode({'mode': 'task', 'task': task, 'data': data, 'userId': _user, 'profile': AppState.I.coachProfile()}))
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 70));
       final j = jsonDecode(res.body);
       if (res.statusCode == 200 && j['ok'] == true && j['result'] is Map) return Map<String, dynamic>.from(j['result']);
     } catch (_) {}
@@ -88,9 +95,11 @@ class Auth {
     if (remote) {
       try {
         final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/signup'),
-            headers: _h, body: jsonEncode({'email': email, 'password': pw, 'data': {'first_name': name}}));
+            headers: _h, body: jsonEncode({'email': email, 'password': pw, 'data': {'first_name': name}, 'options': {'email_redirect_to': '$kApiBase/verified.html'}}));
         final j = jsonDecode(r.body);
         if (r.statusCode >= 400) return AuthResult(false, error: (j['msg'] ?? j['error_description'] ?? 'Could not create account').toString());
+        final ids = (j['identities'] ?? j['user']?['identities']);
+        if (ids is List && ids.isEmpty) return AuthResult(false, error: 'An account with this email already exists. Try logging in.');
         final verified = j['access_token'] != null;
         return AuthResult(true, needsVerification: !verified);
       } catch (_) {
@@ -131,7 +140,7 @@ class Auth {
   static Future<bool> sendReset(String email) async {
     if (remote) {
       try {
-        await http.post(Uri.parse('$kSupabaseUrl/auth/v1/recover'), headers: _h, body: jsonEncode({'email': email}));
+        await http.post(Uri.parse('$kSupabaseUrl/auth/v1/recover?redirect_to=${Uri.encodeComponent('$kApiBase/reset.html')}'), headers: _h, body: jsonEncode({'email': email}));
       } catch (_) {}
     }
     return true;
@@ -141,7 +150,7 @@ class Auth {
     if (!remote) return true;
     try {
       final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/resend'),
-          headers: _h, body: jsonEncode({'type': 'signup', 'email': email}));
+          headers: _h, body: jsonEncode({'type': 'signup', 'email': email, 'options': {'email_redirect_to': '$kApiBase/verified.html'}}));
       return r.statusCode < 400;
     } catch (_) {
       return false;

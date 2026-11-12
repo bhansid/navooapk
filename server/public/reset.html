@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Navoo · New password</title>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#F7F8F6;color:#172026;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+.c{width:100%;max-width:400px}img{height:36px}h1{color:#16324F;font-size:30px;margin:26px 0 8px}p{color:#5D6972;font-size:16px;line-height:1.5}
+input{width:100%;box-sizing:border-box;padding:16px;border:1px solid #DDE3E5;border-radius:14px;font-size:16px;margin:8px 0}
+button{width:100%;padding:16px;border:0;border-radius:16px;background:#2F6B8A;color:#fff;font-size:17px;font-weight:600;margin-top:10px}
+#e{color:#B84A4A}</style></head>
+<body><div class="c"><img src="logo_full.png" alt="navoo"><h1 id="t">Set a new password</h1><p id="m">Choose a new password for your Navoo account.</p>
+<form id="f"><input id="p1" type="password" placeholder="New password (6+ characters)" minlength="6" required><input id="p2" type="password" placeholder="Repeat password" required>
+<p id="e"></p><button>Save password</button></form></div>
+<script>
+const URL_='https://lyhqicfvhbdcxyiufxbj.supabase.co',KEY='sb_publishable_J0LjSWuhXHBEIE8Ug3s3Vg_rtBRAXUJ';
+const h=new URLSearchParams(location.hash.slice(1)),tok=h.get('access_token');
+const done=(t,m)=>{document.getElementById('t').textContent=t;document.getElementById('m').innerHTML=m;document.getElementById('f').remove()};
+if(!tok)done('This link has expired','Open the Navoo app, tap <b>Forgot password?</b> and request a new link.');
+document.getElementById('f')?.addEventListener('submit',async ev=>{ev.preventDefault();const e=document.getElementById('e');
+const a=document.getElementById('p1').value,b=document.getElementById('p2').value;if(a!==b){e.textContent='The passwords don\'t match.';return}
+const r=await fetch(URL_+'/auth/v1/user',{method:'PUT',headers:{apikey:KEY,Authorization:'Bearer '+tok,'content-type':'application/json'},body:JSON.stringify({password:a})});
+if(r.ok)done('Password updated','Go back to the Navoo app and log in with your new password.');else e.textContent='Could not update your password. Please request a new link.'});
+</script></body></html>
