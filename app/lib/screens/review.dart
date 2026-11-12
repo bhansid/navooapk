@@ -345,7 +345,7 @@ class _FocusCompleteScreenState extends State<FocusCompleteScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
-                    label: SizedBox(width: double.infinity, child: Text(o, textAlign: TextAlign.center)),
+                    label: Text(o, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
                     selected: satisfied == o,
                     showCheckmark: false,
                     selectedColor: NC.blueTint,

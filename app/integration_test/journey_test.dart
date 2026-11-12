@@ -184,11 +184,11 @@ void main() {
     await shot('27_me');
     await tap(find.text('Nudges & notifications'));
     await shot('28_nudges');
-    await t.pageBack();
+    app.navKey.currentState!.pop();
     await wait(800);
     await tap(find.text('Privacy & AI'));
     await shot('29_privacy');
-    await t.pageBack();
+    app.navKey.currentState!.pop();
     await wait(800);
 
     app.navKey.currentState!.push(MaterialPageRoute(builder: (_) => const VisionCardScreen()));

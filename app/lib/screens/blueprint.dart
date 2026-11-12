@@ -418,6 +418,20 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         const Text('Or type your own focus below.', style: T.small),
       ]);
 
+  Widget _itemWidget(int i) {
+    final it = items[i];
+    switch (it.kind) {
+      case _K.coach:
+        return ChatBubble(it.text, fromCoach: true, showAvatar: i == 0 || items[i - 1].kind != _K.coach);
+      case _K.user:
+        return ChatBubble(it.text, fromCoach: false);
+      case _K.loading:
+        return const TypingBubble();
+      case _K.focusOptions:
+        return _focusCards();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => NavooScaffold(
         step: barStep,
@@ -425,13 +439,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
           Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 8), child: Row(children: const [NavooLogo(height: 26)])),
           Expanded(
             child: ListView(controller: scroll, padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-              for (var i = 0; i < items.length; i++)
-                switch (items[i].kind) {
-                  _K.coach => ChatBubble(items[i].text, fromCoach: true, showAvatar: i == 0 || items[i - 1].kind != _K.coach),
-                  _K.user => ChatBubble(items[i].text, fromCoach: false),
-                  _K.loading => const TypingBubble(),
-                  _K.focusOptions => _focusCards(),
-                },
+              for (var i = 0; i < items.length; i++) _itemWidget(i),
               if (choices.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 QuickChoices(choices, grid: gridChoices, onPick: (v) {
