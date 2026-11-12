@@ -86,6 +86,18 @@ class AuthResult {
 }
 
 /// Accounts. Uses Supabase when configured at build time, otherwise accounts live on this phone.
+/// Turns backend errors into calm, human messages. Never shows raw server text.
+String friendlyAuthError(int status, String raw) {
+  final m = raw.toLowerCase();
+  if (status == 429 || m.contains('rate limit')) {
+    return "We're getting a lot of sign-ups right now. Please wait a few minutes and try again.";
+  }
+  if (m.contains('already registered') || m.contains('already exists')) return 'An account with this email already exists. Try logging in.';
+  if (m.contains('password')) return 'Please choose a stronger password (at least 6 characters).';
+  if (m.contains('email') && (m.contains('invalid') || m.contains('valid'))) return 'Please check your email address and try again.';
+  return "Sorry, we couldn't create your account just now. Please try again in a moment.";
+}
+
 class Auth {
   static bool get remote => kSupabaseUrl.isNotEmpty && kSupabaseAnon.isNotEmpty;
 
@@ -99,7 +111,7 @@ class Auth {
         final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/signup?redirect_to=${Uri.encodeComponent('$kApiBase/verified.html')}'),
             headers: _h, body: jsonEncode({'email': email, 'password': pw, 'data': {'first_name': name}}));
         final j = jsonDecode(r.body);
-        if (r.statusCode >= 400) return AuthResult(false, error: (j['msg'] ?? j['error_description'] ?? 'Could not create account').toString());
+        if (r.statusCode >= 400) return AuthResult(false, error: friendlyAuthError(r.statusCode, '${j['msg'] ?? j['error_description'] ?? j['error_code'] ?? ''}'));
         final ids = (j['identities'] ?? j['user']?['identities']);
         if (ids is List && ids.isEmpty) return AuthResult(false, error: 'An account with this email already exists. Try logging in.');
         final verified = j['access_token'] != null;
