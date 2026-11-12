@@ -13,8 +13,10 @@ const CRISIS_WORDS = [
 
 const CRISIS_REPLY =
   "I'm really glad you told me, and I'm taking what you said seriously. This matters more than any goal right now.\n\n" +
-  "Please reach out to someone now. In the UK you can call Samaritans free on 116 123, any time, or text SHOUT to 85258. " +
-  "If you're in immediate danger, call 999 (or your local emergency number).\n\n" +
+  "Please reach out to someone now:\n" +
+  "• US: call or text 988 (Suicide & Crisis Lifeline, free, 24/7), or text HOME to 741741. In an emergency, call 911.\n" +
+  "• UK: call Samaritans free on 116 123 (24/7), or text SHOUT to 85258. In an emergency, call 999.\n" +
+  "• Elsewhere: contact your local emergency services.\n\n" +
   "If you can, let someone close to you know how you're feeling. I'm here to keep talking with you too.";
 
 const json = (data, status = 200) =>
