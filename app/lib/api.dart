@@ -96,8 +96,8 @@ class Auth {
   static Future<AuthResult> signUp(String name, String email, String pw) async {
     if (remote) {
       try {
-        final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/signup'),
-            headers: _h, body: jsonEncode({'email': email, 'password': pw, 'data': {'first_name': name}, 'options': {'email_redirect_to': '$kApiBase/verified.html'}}));
+        final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/signup?redirect_to=${Uri.encodeComponent('$kApiBase/verified.html')}'),
+            headers: _h, body: jsonEncode({'email': email, 'password': pw, 'data': {'first_name': name}}));
         final j = jsonDecode(r.body);
         if (r.statusCode >= 400) return AuthResult(false, error: (j['msg'] ?? j['error_description'] ?? 'Could not create account').toString());
         final ids = (j['identities'] ?? j['user']?['identities']);
@@ -151,8 +151,8 @@ class Auth {
   static Future<bool> resendVerification(String email) async {
     if (!remote) return true;
     try {
-      final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/resend'),
-          headers: _h, body: jsonEncode({'type': 'signup', 'email': email, 'options': {'email_redirect_to': '$kApiBase/verified.html'}}));
+      final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/resend?redirect_to=${Uri.encodeComponent('$kApiBase/verified.html')}'),
+          headers: _h, body: jsonEncode({'type': 'signup', 'email': email}));
       return r.statusCode < 400;
     } catch (_) {
       return false;
