@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api.dart';
 import '../device.dart';
 import '../state.dart';
@@ -528,14 +529,14 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           InfoCard(
               icon: Icons.description_outlined,
               title: 'Terms',
-              onTap: () => info('Terms', 'Navoo is in a test phase. Full terms of service will be published here before launch.')),
+              onTap: () => launchUrl(Uri.parse('https://navoo.ai/terms'), mode: LaunchMode.externalApplication)),
           const SizedBox(height: 10),
           InfoCard(
               icon: Icons.policy_outlined,
               tint: NC.sageTint,
               iconColor: NC.success,
               title: 'Privacy policy',
-              onTap: () => info('Privacy policy', 'Navoo is in a test phase. The full privacy policy will be published here before launch.')),
+              onTap: () => launchUrl(Uri.parse('https://navoo.ai/privacy'), mode: LaunchMode.externalApplication)),
           const SizedBox(height: 18),
           const Text('ACCOUNT', style: T.label),
           const SizedBox(height: 10),
