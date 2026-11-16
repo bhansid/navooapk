@@ -6,6 +6,7 @@ import 'package:navoo/main.dart' as app;
 import 'package:navoo/screens/chat_widgets.dart';
 import 'package:navoo/screens/review.dart';
 import 'package:navoo/screens/vision.dart';
+import 'package:navoo/screens/shell.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -219,6 +220,12 @@ void main() {
     app.navKey.currentState!.push(MaterialPageRoute(builder: (_) => const VisionCardScreen()));
     await wait(1500);
     await shot('30_vision');
+    app.navKey.currentState!.pop();
+    await wait(800);
+
+    app.navKey.currentState!.push(MaterialPageRoute(builder: (_) => const FocusScreen()));
+    await wait(1500);
+    await shot('30b_this_weeks_micro_actions');
     app.navKey.currentState!.pop();
     await wait(800);
 

@@ -298,7 +298,7 @@ class _HomeTabState extends State<HomeTab> {
             child: InkWell(
               borderRadius: BorderRadius.circular(22),
               onTap: () async {
-                final tip = s.dailyTip.isNotEmpty ? s.dailyTip : 'What would make your next step easier right now?';
+                final tip = s.dailyTip.isNotEmpty ? s.dailyTip : 'What would make your next Micro-Action easier right now?';
                 if (s.chat.isEmpty || s.chat.last.text != tip) {
                   s.chat.add(ChatMsg('assistant', tip));
                   await s.save();
@@ -314,7 +314,7 @@ class _HomeTabState extends State<HomeTab> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Text('FROM YOUR COACH', style: T.label),
                       const SizedBox(height: 6),
-                      Text(s.dailyTip.isNotEmpty ? s.dailyTip : 'What would make your next step easier right now?',
+                      Text(s.dailyTip.isNotEmpty ? s.dailyTip : 'What would make your next Micro-Action easier right now?',
                           style: const TextStyle(fontSize: 16.5, height: 1.4, color: NC.navy, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       const Text('Reply to Navoo', style: TextStyle(color: NC.blue, fontWeight: FontWeight.w600)),
@@ -335,7 +335,7 @@ class _HomeTabState extends State<HomeTab> {
               icon: Icons.favorite_border,
               tint: NC.lilacTint,
               iconColor: const Color(0xFF7A62B8),
-              label: 'Your vision',
+              label: 'Your Vision',
               title: s.visionHeadline,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VisionCardScreen()))),
         ]),
@@ -344,7 +344,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-/// 30-day focus view/edit.
+/// 30-Day Focus: this week's Micro-Actions (tap to change), earlier weeks as history (P3).
 class FocusScreen extends StatefulWidget {
   const FocusScreen({super.key});
   @override
@@ -353,54 +353,175 @@ class FocusScreen extends StatefulWidget {
 
 class _FocusScreenState extends State<FocusScreen> {
   final s = AppState.I;
+  bool busy = false;
+
+  Future<void> _edit(MicroAction a) async {
+    final changed = await editMicroAction(context, a, onBusy: (b) => setState(() => busy = b));
+    if (!mounted) return;
+    setState(() {});
+    if (changed && a.status == 'active') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)));
+    }
+  }
+
+  Future<void> _different() async {
+    setState(() => busy = true);
+    final r = await Coach.task('actions', {
+      'focus': s.focus,
+      'vision': s.visionHeadline,
+      'obstacles': s.obstaclesText,
+      'how_many': s.queue.length.clamp(1, 3),
+      'all_previous_micro_actions': s.actions.where((a) => a.status == 'done' || a.status == 'skipped').map((a) => a.title).toList(),
+      'rejected_suggestions': s.queue.map((a) => a.title).toList(),
+      'instruction': "The user wants different Micro-Actions for this week. Build on what they've already completed; don't reuse or reword the rejected ones.",
+    });
+    final list = parseActions(r, 'actions', s.week);
+    if (list.isNotEmpty) {
+      s.actions.removeWhere((x) => x.status == 'locked' || x.status == 'active');
+      s.actions.addAll(list);
+      s.activateNext();
+      await s.save();
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (list.isEmpty) {
+      toast(context, "Couldn't reach the coach. Try again in a moment.");
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)));
+    }
+  }
+
+  Widget _row(MicroAction a, {bool editable = false}) {
+    final done = a.status == 'done', skipped = a.status == 'skipped', active = a.status == 'active';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InfoCard(
+        icon: done ? Icons.check : (skipped ? Icons.remove : (active ? iconFor(a.title) : Icons.lock_outline)),
+        tint: done ? NC.sageTint : (active ? NC.warmTint : NC.bg),
+        iconColor: done ? NC.success : (active ? NC.warning : NC.slate),
+        label: done ? 'Done' : (skipped ? 'Not done' : (active ? 'Right now' : 'Coming next')),
+        title: a.title,
+        subtitle: a.description.isEmpty ? null : a.description,
+        trailing: editable ? const Icon(Icons.edit_outlined, color: NC.slate, size: 20) : null,
+        onTap: editable ? () => _edit(a) : null,
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => NavooScaffold(
-        body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-          const Text('Your 30-day focus', style: T.h1),
-          const SizedBox(height: 12),
-          ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.asset('assets/images/food_bowl.jpg', height: 150, width: double.infinity, fit: BoxFit.cover)),
-          const SizedBox(height: 16),
-          Text(s.focus, style: T.h2),
-          const SizedBox(height: 8),
-          Text('Under your vision: ${s.visionHeadline}', style: T.sub),
-          const SizedBox(height: 20),
-          const Text('YOUR MICRO-ACTIONS', style: T.label),
-          const SizedBox(height: 10),
-          for (final a in s.actions.reversed.take(9))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InfoCard(
-                icon: a.status == 'done' ? Icons.check : (a.status == 'active' ? iconFor(a.title) : Icons.lock_outline),
-                tint: a.status == 'done' ? NC.sageTint : (a.status == 'active' ? NC.warmTint : NC.bg),
-                iconColor: a.status == 'done' ? NC.success : (a.status == 'active' ? NC.warning : NC.slate),
-                label: a.status == 'done' ? 'Done' : (a.status == 'active' ? 'Right now' : 'Coming next'),
-                title: a.title,
-              ),
-            ),
-          const SizedBox(height: 14),
-          SoftButton('Edit my focus', icon: Icons.edit_outlined, onPressed: () async {
-            final c = TextEditingController(text: s.focus);
-            final r = await showDialog<String>(
-              context: context,
-              builder: (_) => AlertDialog(
-                backgroundColor: NC.bg,
-                title: const Text('Your 30-day focus', style: T.h3),
-                content: TextField(controller: c, maxLines: 3, autofocus: true),
-                actions: [FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save'))],
-              ),
-            );
-            if (r != null && r.trim().isNotEmpty) {
-              setState(() => s.focus = r.trim());
-              await s.save();
-            }
-          }),
-          const SizedBox(height: 10),
-          SoftButton('Talk it through with Navoo', icon: Icons.chat_bubble_outline, outlined: true,
-              onPressed: () => openCoach(context, preset: 'Can we talk about my 30-day focus? ')),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final thisWeek = s.actions.where((a) => a.week == s.week).toList();
+    final earlier = s.weeksWithActions.where((w) => w < s.week).toList();
+    return NavooScaffold(
+      body: busy
+          ? const NavooThinking()
+          : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
+              const Text('Your 30-Day Focus', style: T.h1),
+              const SizedBox(height: 12),
+              Text(s.focus, style: T.h2),
+              const SizedBox(height: 8),
+              Text('Under your Vision: ${s.visionHeadline}', style: T.sub),
+              const SizedBox(height: 22),
+              Text("THIS WEEK'S MICRO-ACTIONS · WEEK ${s.week}", style: T.label),
+              const SizedBox(height: 10),
+              for (final a in thisWeek.where((a) => a.status == 'done')) _row(a),
+              for (final a in s.queue) _row(a, editable: true),
+              if (s.queue.isNotEmpty) ...[
+                const Text('Tap a Micro-Action to change it.', style: T.small),
+                const SizedBox(height: 10),
+                SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: _different),
+              ] else
+                const Text("You've done this week's Micro-Actions. Add more from Home, or do your check-in.", style: T.small),
+              for (final w in earlier) ...[
+                const SizedBox(height: 22),
+                Text('WEEK $w', style: T.label),
+                const SizedBox(height: 10),
+                for (final a in s.actions.where((a) => a.week == w)) _row(a),
+              ],
+              const SizedBox(height: 18),
+              SoftButton('Edit my focus', icon: Icons.edit_outlined, outlined: true, onPressed: () async {
+                final c = TextEditingController(text: s.focus);
+                final r = await showDialog<String>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: NC.bg,
+                    title: const Text('Your 30-Day Focus', style: T.h3),
+                    content: TextField(controller: c, maxLines: 3, autofocus: true),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save')),
+                    ],
+                  ),
+                );
+                if (r != null && r.trim().isNotEmpty) {
+                  setState(() => s.focus = r.trim());
+                  await s.save();
+                }
+              }),
+              const SizedBox(height: 10),
+              SoftButton('Talk it through with Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+                  onPressed: () => openCoach(context, preset: 'Can we talk about my 30-Day Focus? ')),
+            ]),
+    );
+  }
 }
 
+/// P1 "make it harder": Navoo proposes a slightly harder next version; the user decides.
+Future<void> makeItHarder(BuildContext context) async {
+  final s = AppState.I;
+  final a = s.currentAction;
+  if (a == null) return;
+  showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+  final r = await Coach.task('adapt', {
+    'current_micro_action': a.title,
+    'description': a.description,
+    'focus': s.focus,
+    'vision': s.visionHeadline,
+    'all_previous_micro_actions': s.actions.map((x) => x.title).toList(),
+  });
+  if (!context.mounted) return;
+  Navigator.pop(context);
+  final title = '${r?['title'] ?? ''}'.trim();
+  if (title.isEmpty) {
+    openCoach(context, preset: 'I\'m nailing "${a.title}". Can we make it a bit harder?', send: true);
+    return;
+  }
+  final use = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: NC.bg,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [const CoachAvatar(size: 36), const SizedBox(width: 10), Expanded(child: Text('${r?['message'] ?? 'Nice work. Here is a small step up.'}', style: T.body))]),
+          const SizedBox(height: 16),
+          InfoCard(icon: Icons.trending_up, tint: NC.sageTint, iconColor: NC.success, label: 'Your new Micro-Action', title: title, subtitle: '${r?['description'] ?? ''}'),
+          const SizedBox(height: 16),
+          PrimaryButton('Use this Micro-Action', trailingArrow: true, onPressed: () => Navigator.pop(context, true)),
+          const SizedBox(height: 8),
+          SoftButton('Keep my current one', outlined: true, onPressed: () => Navigator.pop(context, false)),
+        ]),
+      ),
+    ),
+  );
+  if (use != true || !context.mounted) return;
+  final n = MicroAction(
+    id: '${DateTime.now().microsecondsSinceEpoch}',
+    title: title,
+    description: '${r?['description'] ?? ''}',
+    why: '${r?['why'] ?? ''}',
+    minutes: (r?['minutes'] is num) ? (r!['minutes'] as num).toInt() : 10,
+    week: s.week,
+    status: 'active',
+    reward: a.reward,
+  );
+  a.status = 'skipped';
+  s.actions.insert(s.actions.indexOf(a) + 1, n);
+  await s.save();
+  if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)));
+}
 
 /// P1: a clear, coloured "How is this going?" card with three choices.
 class _AdaptCard extends StatelessWidget {
@@ -409,14 +530,14 @@ class _AdaptCard extends StatelessWidget {
   const _AdaptCard({required this.onPick, required this.title});
   @override
   Widget build(BuildContext context) {
-    Widget choice(IconData icon, String label, String msg, Color c, {bool send = true}) => Padding(
+    Widget choice(IconData icon, String label, String msg, Color c, {bool send = true, bool harder = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () => onPick(msg, send),
+              onTap: () => harder ? makeItHarder(context) : onPick(msg, send),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 child: Row(children: [
@@ -437,7 +558,7 @@ class _AdaptCard extends StatelessWidget {
         const SizedBox(height: 4),
         const Text("Adapting your Micro-Actions to real life is how change sticks. Tell Navoo and we'll adjust.", style: T.small),
         const SizedBox(height: 12),
-        choice(Icons.trending_up, "I'm nailing it, make it harder", 'I\'m nailing "$title". Can we make it a bit harder?', NC.success),
+        choice(Icons.trending_up, "I'm nailing it, make it harder", '', NC.success, harder: true),
         choice(Icons.support, "I'm struggling, help me", 'I\'m struggling with "$title". Can you help me?', NC.error),
         choice(Icons.tune, 'Something has changed', 'Something has changed with "$title". ', NC.blue, send: false),
       ]),

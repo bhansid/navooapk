@@ -170,6 +170,12 @@ Data: ${JSON.stringify(d)}`,
   insights: (d) => `The user just completed a Micro-Action. From this and their profile, write 0-2 NEW short insights about what helps them, in the user's own first-person voice (e.g. "Mornings are when I follow through best", "Leaving ingredients out made cooking easier"). Only include something genuinely supported by the data; skip anything already in learned_about_user. Never "User is...".
 Return JSON {"insights": ["..."]}.
 Data: ${JSON.stringify(d)}`,
+  describe_micro_action: (d) => `The user rewrote a Micro-Action in their own words. Keep their title exactly as written. Write a matching one-line description and a one-sentence "why" that links it to their 30-Day Focus and Vision, and estimate minutes.
+Return JSON {"description": "one short line", "why": "one sentence", "minutes": number}.
+Data: ${JSON.stringify(d)}`,
+  adapt: (d) => `The user tapped "I'm nailing it, make it harder" for their current Micro-Action. Acknowledge it in one short, proportionate sentence, then suggest ONE slightly harder next version that builds directly on it (a small step up, not a leap), still linked to the 30-Day Focus and Vision, never repeating anything in all_previous_micro_actions.
+Return JSON {"message": "one or two short sentences to the user", "title": "max 7 words", "description": "one short line", "why": "one sentence", "minutes": number}.
+Data: ${JSON.stringify(d)}`,
   improve_ifthen: (d) => `The user drafted an If/Then plan themselves. Keep their words and idea; only tighten it so the IF is a clear cue and the THEN a small, specific action. If it's already good, keep it. Also suggest one environment/setup idea if they gave none.
 Return JSON {"if": "...", "then": "...", "backup_if": "...", "backup_then": "...", "setup": "...", "comment": "one short, calm sentence to the user (no hype)"}.
 Draft: ${JSON.stringify(d)}`,

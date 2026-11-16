@@ -119,7 +119,7 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
       final r = await Device.setWallpaper(png, where);
       if (!mounted) return;
       if (r == 'done') {
-        toast(context, 'Your vision is now your wallpaper.');
+        toast(context, 'Your Vision is now your wallpaper.');
       } else if (r == 'ios-saved') {
         showDialog(
           context: context,
@@ -127,7 +127,7 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
             backgroundColor: NC.bg,
             title: const Text('Saved to Photos', style: T.h3),
             content: const Text(
-                'iPhone doesn\'t let apps change the wallpaper directly. To set it:\n\n1. Open Photos and find your vision.\n2. Tap Share, then "Use as Wallpaper".\n3. Choose Lock Screen.',
+                'iPhone doesn\'t let apps change the wallpaper directly. To set it:\n\n1. Open Photos and find your Vision.\n2. Tap Share, then "Use as Wallpaper".\n3. Choose Lock Screen.',
                 style: T.body),
             actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Got it'))],
           ),
@@ -138,8 +138,8 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
     });
   }
 
-  Future<void> printIt() => _withImage((png) => Device.printImage(png, 'My Navoo vision'));
-  Future<void> share() => _withImage((png) => Device.shareImage(png, 'My vision'));
+  Future<void> printIt() => _withImage((png) => Device.printImage(png, 'My Navoo Vision'));
+  Future<void> share() => _withImage((png) => Device.shareImage(png, 'My Vision'));
 
   Future<void> edit() async {
     final h = TextEditingController(text: s.visionHeadline), b = TextEditingController(text: s.visionBody);
@@ -147,7 +147,7 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: NC.bg,
-        title: const Text('Edit your vision', style: T.h3),
+        title: const Text('Edit your Vision', style: T.h3),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(controller: h, decoration: const InputDecoration(labelText: 'Headline'), maxLines: 2),
@@ -224,7 +224,7 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
           child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Icon(Icons.science_outlined, color: NC.success),
             SizedBox(width: 12),
-            Expanded(child: Text('Seeing your vision often keeps it front of mind, so you notice more chances to act on it.', style: T.body)),
+            Expanded(child: Text('Seeing your Vision often keeps it front of mind, so you notice more chances to act on it.', style: T.body)),
           ]),
         ),
         const SizedBox(height: 18),

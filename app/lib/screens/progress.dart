@@ -60,6 +60,22 @@ class _ProgressTabState extends State<ProgressTab> {
     await s.save();
   }
 
+  /// B5: insights straight from what the user has done, so this section fills up even before the
+  /// coach has written any (e.g. offline). Written in the user's own voice.
+  List<String> get derived {
+    final out = <String>[];
+    final d = s.done;
+    if (d.isEmpty) return out;
+    final withCodes = d.where((a) => a.codesDone).length;
+    if (withCodes > 0) out.add('I followed through on $withCodes Micro-Action${withCodes == 1 ? '' : 's'} where I had set up my Brain Cheat Codes.');
+    final good = d.where((a) => a.feeling == 'Good' || a.feeling == 'Great').toList();
+    if (good.isNotEmpty) out.add('"${good.last.title}" felt ${good.last.feeling!.toLowerCase()}.');
+    final hard = d.where((a) => a.feeling == 'Hard' || a.feeling == 'A bit hard').toList();
+    if (hard.isNotEmpty) out.add('"${hard.last.title}" felt hard. A smaller version could make it easier.');
+    if (s.bestTime != null) out.add('${s.bestTime!.split(' (').first} are when I follow through best so far.');
+    return out.where((x) => !s.learnings.any((l) => l.toLowerCase() == x.toLowerCase())).take(4).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final lastDone = s.done.isEmpty ? null : s.done.last;
@@ -75,7 +91,7 @@ class _ProgressTabState extends State<ProgressTab> {
         const Text('Small actions. Real learning.', style: T.sub),
         const SizedBox(height: 18),
         Row(children: [
-          Expanded(child: _Stat(icon: Icons.check_circle_outline, tint: NC.sageTint, color: NC.success, label: 'Actions done', value: '${s.done.length}')),
+          Expanded(child: _Stat(icon: Icons.check_circle_outline, tint: NC.sageTint, color: NC.success, label: 'Micro-Actions done', value: '${s.done.length}')),
           const SizedBox(width: 10),
           Expanded(child: _Stat(icon: Icons.bar_chart_rounded, tint: NC.blueTint, color: NC.blue, label: 'Consistency', value: consistency)),
         ]),
@@ -100,10 +116,10 @@ class _ProgressTabState extends State<ProgressTab> {
               Text("WHAT I'VE LEARNED ABOUT MYSELF", style: T.label),
             ]),
             const SizedBox(height: 12),
-            if (s.learnings.isEmpty)
+            if (s.learnings.isEmpty && derived.isEmpty)
               const Text('As you do your Micro-Actions and talk to Navoo, what helps you and what gets in the way will show up here.', style: T.body)
             else
-              ...s.learnings.reversed.take(8).map((l) => Padding(
+              ...[...s.learnings.reversed.take(8), ...derived].map((l) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Padding(padding: EdgeInsets.only(top: 7), child: Icon(Icons.circle, size: 7, color: NC.warning)),
@@ -133,7 +149,7 @@ class _ProgressTabState extends State<ProgressTab> {
               tint: NC.sageTint,
               iconColor: NC.success,
               label: 'What motivates me',
-              title: s.reward.isEmpty ? s.whyMatters : 'Reward: ${s.reward}',
+              title: s.rewards.isNotEmpty ? 'Rewards: ${s.rewards.join(' · ')}' : (s.reward.isEmpty ? s.whyMatters : 'Reward: ${s.reward}'),
               subtitle: good > 0 ? '$good of your Micro-Actions felt good or great.' : null),
           const SizedBox(height: 12),
         ],
@@ -159,13 +175,31 @@ class _ProgressTabState extends State<ProgressTab> {
           ]),
         ),
         const SizedBox(height: 12),
-        if (s.done.isNotEmpty) ...[
-          const Text('COMPLETED', style: T.label),
+        if (s.actions.isNotEmpty) ...[
+          const Text('MY MICRO-ACTIONS, WEEK BY WEEK', style: T.label),
           const SizedBox(height: 10),
-          ...s.done.reversed.take(12).map((a) => Padding(
+          for (final w in s.weeksWithActions) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 4),
+              child: Text(w == s.week ? 'Week $w (this week)' : 'Week $w', style: T.h3),
+            ),
+            for (final a in s.actions.where((a) => a.week == w))
+              Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, title: a.title, subtitle: 'Week ${a.week}'),
-              )),
+                child: InfoCard(
+                  icon: a.status == 'done' ? Icons.check : (a.status == 'skipped' ? Icons.remove : (a.status == 'active' ? Icons.radio_button_checked : Icons.lock_outline)),
+                  tint: a.status == 'done' ? NC.sageTint : (a.status == 'active' ? NC.warmTint : NC.bg),
+                  iconColor: a.status == 'done' ? NC.success : (a.status == 'active' ? NC.warning : NC.slate),
+                  title: a.title,
+                  subtitle: switch (a.status) {
+                    'done' => a.feeling == null ? 'Done' : 'Done · felt ${a.feeling!.toLowerCase()}',
+                    'skipped' => 'Not done',
+                    'active' => 'Right now',
+                    _ => 'Coming next',
+                  },
+                ),
+              ),
+          ],
         ],
       ]),
     );

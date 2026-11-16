@@ -14,7 +14,8 @@ Map<String, dynamic> weekData() {
     'focus': s.focus,
     'week': s.week,
     'completed': s.done.where((a) => a.doneAt != null && a.doneAt!.isAfter(since)).map((a) => {'title': a.title, 'felt': a.feeling, 'if': a.ifCue, 'then': a.thenDo, 'done_at': a.doneAt!.toIso8601String()}).toList(),
-    'not_done': s.actions.where((a) => a.status != 'done').map((a) => {'title': a.title, 'status': a.status, 'if': a.ifCue}).toList(),
+    'not_done': s.queue.map((a) => {'title': a.title, 'status': a.status, 'if': a.ifCue}).toList(),
+    'earlier_weeks': s.actions.where((a) => a.week < s.week).map((a) => {'title': a.title, 'week': a.week, 'status': a.status}).toList(),
     'obstacles': s.obstaclesText,
     'learned_before': s.learnings,
   };
@@ -101,7 +102,13 @@ class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
         const SizedBox(height: 12),
         const Text('What helped, or what went well?', style: T.h3),
         const SizedBox(height: 8),
-        TextField(key: const Key('review_worked'), controller: c, minLines: 2, maxLines: 6, decoration: const InputDecoration(hintText: 'e.g. Having the recipes saved made Tuesday easy')),
+        TextField(
+            key: const Key('review_worked'),
+            controller: c,
+            minLines: 2,
+            maxLines: 6,
+            onChanged: (_) => _saveDraft({'stage': 'worked', 'worked': c.text.trim()}),
+            decoration: const InputDecoration(hintText: 'e.g. Having the recipes saved made Tuesday easy')),
         const SizedBox(height: 18),
         PrimaryButton('Continue', trailingArrow: true, testKey: const Key('worked_continue'), onPressed: () async {
           await _saveDraft({'stage': 'inway', 'worked': c.text.trim()});
@@ -109,7 +116,7 @@ class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
         }),
         const SizedBox(height: 10),
         SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
-          await _saveDraft({'worked': c.text.trim()});
+          await _saveDraft({'stage': 'worked', 'worked': c.text.trim()});
           if (context.mounted) openCoachOver(context, '');
         }),
       ]),
@@ -215,7 +222,26 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
     _load();
   }
 
+  /// Restore the learnings and suggestions already shown, so returning to the check-in keeps your place (B2).
+  bool _restore() {
+    final c = s.reviewDraft['result'];
+    if (c is! Map) return false;
+    headline = '${c['headline'] ?? ''}';
+    learned = List<String>.from(c['learned'] ?? []);
+    noticed = List<String>.from(c['noticed'] ?? []);
+    next = (c['next'] is List) ? (c['next'] as List).map((e) => MicroAction.fromJson(Map<String, dynamic>.from(e))).toList() : [];
+    return next.isNotEmpty;
+  }
+
+  Future<void> _cache() => _saveDraft({
+        'result': {'headline': headline, 'learned': learned, 'noticed': noticed, 'next': next.map((a) => a.toJson()).toList()}
+      });
+
   Future<void> _load({bool different = false}) async {
+    if (!different && _restore()) {
+      setState(() => loading = false);
+      return;
+    }
     setState(() => loading = true);
     final r = await Coach.task('weekly_review', {
       ...weekData(),
@@ -232,12 +258,15 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
     next = parseActions(r, 'next_actions', s.week + 1).where((a) => !previous.contains(a.title.toLowerCase().trim())).toList();
     if (next.isEmpty) next = fallbackActions(s.focus).where((a) => !previous.contains(a.title.toLowerCase().trim())).map((a) => a..week = s.week + 1).toList();
     if (headline.isEmpty) headline = widget.said.isEmpty ? 'Keep what worked, and make the next Micro-Actions a little easier.' : "We'll design around what got in the way.";
+    await _cache();
     if (mounted) setState(() => loading = false);
   }
 
   Future<void> accept() async {
     s.addLearnings(learned);
-    s.actions.removeWhere((a) => a.status != 'done');
+    for (final a in s.queue) {
+      a.status = 'skipped'; // kept as history so it is never suggested again by accident
+    }
     s.week += 1;
     for (final a in next) {
       a.week = s.week;
@@ -255,26 +284,9 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
   }
 
   Future<void> edit(int i) async {
-    final t = TextEditingController(text: next[i].title), d = TextEditingController(text: next[i].description);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: NC.bg,
-        title: const Text('Change this Micro-Action', style: T.h3),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
-          const SizedBox(height: 10),
-          TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details (optional)')),
-        ]),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save'))],
-      ),
-    );
-    if (ok == true && t.text.trim().isNotEmpty) {
-      setState(() {
-        next[i].title = t.text.trim();
-        next[i].description = d.text.trim();
-      });
-    }
+    await editMicroAction(context, next[i], onBusy: (b) => setState(() => loading = b));
+    await _cache();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -368,7 +380,10 @@ class _FocusCompleteScreenState extends State<FocusCompleteScreen> {
     s.satisfaction = satisfied;
     s.focus = focus;
     s.focusStart = DateTime.now();
-    s.actions.removeWhere((a) => a.status != 'done');
+    for (final a in s.queue) {
+      a.status = 'skipped';
+    }
+    s.week += 1;
     s.lastReview = DateTime.now();
     await s.save();
     if (!mounted) return;
@@ -383,7 +398,7 @@ class _FocusCompleteScreenState extends State<FocusCompleteScreen> {
           const SizedBox(height: 6),
           Center(child: Text('30 days of "${s.focus}".', textAlign: TextAlign.center, style: T.sub)),
           const SizedBox(height: 16),
-          InfoCard(icon: Icons.check_circle_outline, tint: NC.sageTint, iconColor: NC.success, label: 'Completed', title: '${s.done.length} actions'),
+          InfoCard(icon: Icons.check_circle_outline, tint: NC.sageTint, iconColor: NC.success, label: 'Completed', title: '${s.done.length} Micro-Actions'),
           if (summary.isNotEmpty) ...[const SizedBox(height: 10), InfoCard(icon: Icons.lightbulb_outline, tint: NC.warmTint, iconColor: NC.warning, label: 'What helped', title: summary)],
           const SizedBox(height: 18),
           const Text('How satisfied are you with your progress towards your goal?', style: T.h3),
@@ -404,7 +419,7 @@ class _FocusCompleteScreenState extends State<FocusCompleteScreen> {
               ),
           ]),
           const SizedBox(height: 22),
-          Text('Your next 30-day focus, under the same vision: ${s.visionHeadline}', style: T.h3),
+          Text('Your next 30-Day Focus, under the same Vision: ${s.visionHeadline}', style: T.h3),
           const SizedBox(height: 10),
           if (loading)
             const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))

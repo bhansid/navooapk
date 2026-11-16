@@ -31,9 +31,57 @@ List<MicroAction> fallbackActions(String focus) {
   }
   return [
     MicroAction(id: '${id}1', title: 'Take a 10-minute walk', description: 'Any pace, anywhere.', why: 'Short is easier to start and easier to repeat.', minutes: 10),
-    MicroAction(id: '${id}2', title: 'Pick your best time of day', description: 'Notice when you usually have more energy.', why: 'Matching the action to your energy makes it stick.', minutes: 5),
-    MicroAction(id: '${id}3', title: 'Repeat it at that time', description: 'Same action, at the time that suits you.', why: 'Repeating it at a set time builds a cue.', minutes: 10),
+    MicroAction(id: '${id}2', title: 'Pick your best time of day', description: 'Notice when you usually have more energy.', why: 'Matching it to your energy makes it stick.', minutes: 5),
+    MicroAction(id: '${id}3', title: 'Repeat it at that time', description: 'Same Micro-Action, at the time that suits you.', why: 'Repeating it at a set time builds a cue.', minutes: 10),
   ];
+}
+
+/// B1: change a Micro-Action. Title and description always end up matching: if the user only
+/// changes the title, Navoo rewrites the description and "why" to fit the new Micro-Action.
+/// Returns true when the title changed.
+Future<bool> editMicroAction(BuildContext context, MicroAction a, {void Function(bool busy)? onBusy}) async {
+  final s = AppState.I;
+  final t = TextEditingController(text: a.title), d = TextEditingController(text: a.description);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: NC.bg,
+      title: const Text('Change this Micro-Action', style: T.h3),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
+          const SizedBox(height: 10),
+          TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details', helperText: 'Leave as it is and Navoo will update it to match.')),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+      ],
+    ),
+  );
+  final title = t.text.trim();
+  if (ok != true || title.isEmpty) return false;
+  final changedTitle = title != a.title;
+  final descTouched = d.text.trim() != a.description;
+  a.title = title;
+  a.description = d.text.trim();
+  if (changedTitle) {
+    a.codesDone = false; // Brain Cheat Codes are re-checked for the new Micro-Action
+    a.thenDo = '';
+    if (!descTouched || a.description.isEmpty) {
+      a.description = '';
+      a.why = '';
+      onBusy?.call(true);
+      final r = await Coach.task('describe_micro_action', {'title': title, 'focus': s.focus, 'vision': s.visionHeadline});
+      a.description = '${r?['description'] ?? ''}'.trim();
+      a.why = '${r?['why'] ?? ''}'.trim();
+      if (r?['minutes'] is num) a.minutes = (r!['minutes'] as num).toInt();
+      onBusy?.call(false);
+    }
+  }
+  await s.save();
+  return changedTitle;
 }
 
 List<MicroAction> parseActions(Map<String, dynamic>? r, String key, int week) {
@@ -72,12 +120,12 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
   }
 
   Future<void> _load() async {
-    if (s.actions.where((a) => a.status != 'done').isEmpty) {
+    if (s.queue.isEmpty) {
       final r = await Coach.task('actions', {
         'focus': s.focus,
         'obstacles': s.obstaclesText,
         'vision': s.visionHeadline,
-        'reward': s.reward,
+        'all_previous_micro_actions': s.actions.map((a) => a.title).toList(),
       });
       var list = parseActions(r, 'actions', s.week);
       if (list.isEmpty) list = fallbackActions(s.focus);
@@ -90,34 +138,10 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
 
 /// B1: edit title and description together; the Micro-Actions after it are rebuilt to follow on.
   Future<void> _edit(MicroAction a) async {
-    final t = TextEditingController(text: a.title), d = TextEditingController(text: a.description);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: NC.bg,
-        title: const Text('Change this Micro-Action', style: T.h3),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
-            const SizedBox(height: 10),
-            TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details (optional)')),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (ok != true || t.text.trim().isEmpty) return;
-    final changedTitle = t.text.trim() != a.title;
-    setState(() {
-      a.title = t.text.trim();
-      a.description = d.text.trim();
-      if (changedTitle) a.codesDone = false;
-    });
-    if (changedTitle) await _rebuildAfter(a);
+    final changed = await editMicroAction(context, a, onBusy: (b) => setState(() => loading = b));
+    if (changed) await _rebuildAfter(a);
     await s.save();
+    if (mounted) setState(() {});
   }
 
   Future<void> _rebuildAfter(MicroAction edited) async {
@@ -154,7 +178,7 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
     });
     final list = parseActions(r, 'actions', s.week);
     if (list.isNotEmpty) {
-      s.actions.removeWhere((x) => x.status != 'done');
+      s.actions.removeWhere((x) => x.status == 'locked' || x.status == 'active');
       s.actions.addAll(list);
       s.activateNext();
       await s.save();
@@ -299,9 +323,9 @@ class IfThenLine extends StatelessWidget {
   Widget build(BuildContext context) => Text.rich(
         TextSpan(style: TextStyle(fontSize: size, color: NC.navy, height: 1.4), children: [
           const TextSpan(text: 'IF ', style: TextStyle(fontWeight: FontWeight.w800, color: NC.success)),
-          TextSpan(text: '$ifText, '),
-          const TextSpan(text: 'THEN ', style: TextStyle(fontWeight: FontWeight.w800, color: NC.blue)),
-          TextSpan(text: thenText),
+          TextSpan(text: thenText.isEmpty ? ifText : '$ifText, '),
+          if (thenText.isNotEmpty) const TextSpan(text: 'THEN ', style: TextStyle(fontWeight: FontWeight.w800, color: NC.blue)),
+          if (thenText.isNotEmpty) TextSpan(text: thenText),
         ]),
       );
 }
@@ -466,7 +490,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
               key: k,
               controller: c,
               minLines: 1,
-              maxLines: 6,
+              maxLines: null, // B3: grows with the answer
               keyboardType: TextInputType.multiline,
               textCapitalization: TextCapitalization.sentences,
               onChanged: (_) => setState(() => error = ''),
@@ -553,7 +577,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
           const Text('1. If/Then planning', style: T.h2),
           const SizedBox(height: 8),
           _explainer(Icons.science_outlined, 'Why this works',
-              'Deciding in advance what you\'ll do in a specific moment means you don\'t have to rely on willpower when it arrives. Writing it in your own words is part of what makes it work.'),
+              'This exercise, called If/Then planning, is backed by a review of 94 studies: people who decide in advance "IF this moment comes, THEN I will..." are much more likely to follow through. Writing it in your own words is part of what makes it work.'),
           const SizedBox(height: 12),
           _section('LINK IT TO A MOMENT IN YOUR DAY', Colors.white, [
             _box('IF', mIf, 'I have finished eating my lunch', NC.success, k: const Key('if_cue')),
@@ -585,14 +609,14 @@ class _IfThenScreenState extends State<IfThenScreen> {
           const Text('2. Create a Physical Nudge', style: T.h2),
           const SizedBox(height: 8),
           _explainer(Icons.home_work_outlined, 'Why this works',
-              'Your surroundings shape what you do, especially when you\'re tired. One small change makes the right choice the easy, visible one.'),
+              'This exercise, called Environment Design, works because your surroundings shape what you do, especially when you\'re tired. One small change to your space makes the right choice the easy, visible one.'),
           const SizedBox(height: 12),
           _section('YOUR PHYSICAL NUDGE', NC.lilacTint, [
             TextField(
               key: const Key('nudge'),
               controller: nudge,
               minLines: 1,
-              maxLines: 6,
+              maxLines: null, // B3: grows with the answer
               onChanged: (_) => setState(() => error = ''),
               decoration: const InputDecoration(hintText: 'e.g. leave the ingredients on the worktop before work'),
             ),
@@ -664,7 +688,7 @@ class ReadyScreen extends StatelessWidget {
               SizedBox(height: 18),
               Text("You're ready to get started.", style: T.h1),
               SizedBox(height: 10),
-              Text("You've done the thinking. Now it's one small action.", style: T.sub),
+              Text("You've done the thinking. Now it's one small Micro-Action.", style: T.sub),
             ]),
           ),
           ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.asset('assets/images/hero_ready.jpg', width: 120, height: 190, fit: BoxFit.cover)),
@@ -674,7 +698,7 @@ class ReadyScreen extends StatelessWidget {
             icon: Icons.track_changes,
             tint: NC.sageTint,
             iconColor: NC.success,
-            title: 'One action at a time.',
+            title: 'One Micro-Action at a time.',
             subtitle: "When you complete it, the next one unlocks. If things change, we'll adapt together."),
         const SizedBox(height: 12),
         if (a != null)
@@ -684,7 +708,7 @@ class ReadyScreen extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('YOUR NEXT ACTION', style: T.label),
+                  const Text('YOUR NEXT MICRO-ACTION', style: T.label),
                   const SizedBox(height: 6),
                   Text(a.title, style: T.h2),
                   if (a.description.isNotEmpty) ...[const SizedBox(height: 6), Text(a.description, style: T.small)],
@@ -718,7 +742,7 @@ class ActionDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppState.I;
     final a = s.currentAction;
-    if (a == null) return const NavooScaffold(body: Center(child: Text('No active action right now.', style: T.sub)));
+    if (a == null) return const NavooScaffold(body: Center(child: Text('No active Micro-Action right now.', style: T.sub)));
     return NavooScaffold(
       body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
         Text(a.title, style: T.h1),
@@ -825,9 +849,9 @@ class _CelebrationScreenState extends State<CelebrationScreen> with SingleTicker
           SizedBox(height: 170, child: Center(child: Image.asset('assets/images/celebrate.jpg', height: 170))),
           const SizedBox(height: 10),
           const Center(child: Text('You did it.', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: NC.navy))),
-          const Center(child: Text('That small step counts.', style: T.sub)),
+          const Center(child: Text('That Micro-Action counts.', style: T.sub)),
           const SizedBox(height: 20),
-          InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, label: 'Completed', title: widget.done.title, subtitle: 'A small step towards your 30-day focus.'),
+          InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, label: 'Completed', title: widget.done.title, subtitle: 'One Micro-Action closer to your 30-Day Focus.'),
           const SizedBox(height: 10),
           if (nextA != null)
             InfoCard(icon: iconFor(nextA.title), tint: NC.warmTint, iconColor: NC.warning, label: 'Next Micro-Action unlocked', title: nextA.title, subtitle: 'Ready when you are.')
@@ -917,11 +941,25 @@ class RewardClaimScreen extends StatefulWidget {
   State<RewardClaimScreen> createState() => _RewardClaimScreenState();
 }
 
-class _RewardClaimScreenState extends State<RewardClaimScreen> {
+class _RewardClaimScreenState extends State<RewardClaimScreen> with SingleTickerProviderStateMixin {
   final s = AppState.I;
+  late final AnimationController c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300));
+  late final parts = List.generate(60, (i) => _Part(Random(11 + i)));
+  bool leaving = false;
 
-  void _next(String msg) {
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  /// B4: every choice (claim, well done, skip) gets a confetti burst, then the app moves on.
+  Future<void> _next(String msg) async {
+    if (leaving) return;
+    leaving = true;
     toast(context, msg);
+    await c.forward(from: 0);
+    if (!mounted) return;
     final nextA = s.currentAction;
     Navigator.of(context).popUntil((r) => r.isFirst);
     if (nextA != null && !nextA.codesDone) {
@@ -934,7 +972,8 @@ class _RewardClaimScreenState extends State<RewardClaimScreen> {
     final reward = s.rewardFor(widget.action);
     return NavooScaffold(
       back: false,
-      body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
+      body: Stack(children: [
+      ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
         ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.asset('assets/images/reward_tea.jpg', height: 220, width: double.infinity, fit: BoxFit.cover)),
         const SizedBox(height: 20),
         const Center(child: Text('Micro-Action complete.', textAlign: TextAlign.center, style: T.h1)),
@@ -970,6 +1009,11 @@ class _RewardClaimScreenState extends State<RewardClaimScreen> {
           Expanded(child: SoftButton('Skip', outlined: true, onPressed: () => _next('Nice work.'))),
         ]),
       ]),
+        IgnorePointer(
+          child: AnimatedBuilder(
+              animation: c, builder: (_, __) => c.value == 0 ? const SizedBox.shrink() : CustomPaint(size: MediaQuery.of(context).size, painter: _Confetti(parts, c.value))),
+        ),
+      ]),
     );
   }
 }
@@ -990,11 +1034,11 @@ class NudgeScreen extends StatelessWidget {
             if (a != null) ...[
               Container(width: 140, height: 140, decoration: const BoxDecoration(color: NC.sageTint, shape: BoxShape.circle), child: Icon(iconFor(a.title), size: 70, color: NC.success)),
               const SizedBox(height: 24),
-              Text(a.ifCue.isNotEmpty ? 'If ${a.ifCue}, then ${a.thenDo}.' : a.title, textAlign: TextAlign.center, style: T.h2),
+              if (a.ifCue.isNotEmpty) IfThenLine(a.ifCue, a.thenDo, size: 20) else Text(a.title, textAlign: TextAlign.center, style: T.h2),
               const SizedBox(height: 10),
-              const Text('In your own words.', style: T.sub),
+              if (a.ifCue.isNotEmpty) const Text('Your Brain Cheat Code, in your own words.', style: T.sub),
               const SizedBox(height: 22),
-              InfoCard(icon: iconFor(a.title), tint: NC.sageTint, iconColor: NC.success, label: 'Your next step', title: a.title, subtitle: 'A small step towards your 30-day focus.'),
+              InfoCard(icon: iconFor(a.title), tint: NC.sageTint, iconColor: NC.success, label: 'Your next Micro-Action', title: a.title, subtitle: 'One Micro-Action closer to your 30-Day Focus.'),
             ],
             const Spacer(),
             PrimaryButton('Do it now', trailingArrow: true,

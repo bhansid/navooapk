@@ -45,7 +45,7 @@ class Device {
 
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails('navoo_nudges', 'Nudges',
-        channelDescription: 'Gentle reminders for your next action', importance: Importance.defaultImportance),
+        channelDescription: 'Gentle reminders for your next Micro-Action', importance: Importance.defaultImportance),
     iOS: DarwinNotificationDetails(),
   );
 
@@ -91,7 +91,7 @@ class Device {
           if ((n['text'] ?? '').isNotEmpty) texts.add(n['text']!);
         }
         if (texts.isEmpty && s.nudgeOwnWords && a.ifCue.isNotEmpty) texts.add('If ${a.ifCue}, then ${a.thenDo}.');
-        if (texts.isEmpty) texts.add('Your next step: ${a.title}. It only takes a few minutes.');
+        if (texts.isEmpty) texts.add('Your next Micro-Action: ${a.title}. It only takes a few minutes.');
         if (a.triggerHour >= 0 && s.nudgeOwnWords && !_quiet(a.triggerHour, s)) {
           await _notes.zonedSchedule(
             50,
@@ -189,7 +189,7 @@ class Device {
   static Future<String?> saveToGallery(Uint8List png) async {
     try {
       final ok = await Gal.hasAccess(toAlbum: true) || await Gal.requestAccess(toAlbum: true);
-      if (!ok) return 'Please allow access to Photos to save your vision.';
+      if (!ok) return 'Please allow access to Photos to save your Vision.';
       await Gal.putImageBytes(png, name: 'navoo_vision_${DateTime.now().millisecondsSinceEpoch}', album: 'Navoo');
       return null;
     } catch (e) {

@@ -268,7 +268,10 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         setState(() {
           busy = false;
           items.removeWhere((i) => i.kind == _K.loading);
-          _coach("That's useful to know. We'll work around it rather than hoping it won't happen.");
+        });
+        await _ack(s.obstaclesText, question: 'What usually gets in the way, and what happens next?');
+        setState(() {
+          _coach("We'll work around that rather than hoping it won't happen.");
           _coach('A couple of deeper questions now. Your answers will help us create the best Brain Cheat Codes for you.');
           _coach("If you succeed at this, what does that say about the person you're becoming?");
           step = 'identity';
@@ -323,7 +326,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
   Future<void> _buildVision() async {
     setState(() {
       busy = true;
-      _coach("Thanks. I'm putting your vision together.");
+      _coach("Thanks. I'm putting your Vision together.");
       items.add(_Item(_K.loading));
     });
     _scroll();
@@ -344,7 +347,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const VisionCardScreen(onboarding: true)));
     if (!mounted) return;
     setState(() {
-      _coach('With your vision in mind, what feels right to focus on for the next 30 days? Here are three options. Pick one, edit it, or suggest your own.');
+      _coach('With your Vision in mind, what feels right to focus on for the next 30 days? Here are three options. Pick one, edit it, or suggest your own.');
       step = 'focus';
     });
     await _loadFocusOptions();
@@ -390,7 +393,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
     });
     await _pause();
     setState(() {
-      _coach('Your 30-day focus: "${s.focus}"');
+      _coach('Your 30-Day Focus: "${s.focus}"');
       _coach("What's most likely to get in your way with this?");
       choices = const [
         QuickChoice("I'm too tired after work"),
@@ -518,10 +521,11 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
 
 /// Screen 14 — Your reward card.
 class RewardCardScreen extends StatelessWidget {
-  const RewardCardScreen({super.key});
+  final bool onboarding;
+  const RewardCardScreen({super.key, this.onboarding = true});
   @override
   Widget build(BuildContext context) => NavooScaffold(
-        step: 4,
+        step: onboarding ? 4 : null,
         body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(24),
@@ -536,7 +540,7 @@ class RewardCardScreen extends StatelessWidget {
               child: Row(children: [const Icon(Icons.card_giftcard, color: NC.success, size: 20), const SizedBox(width: 10), Expanded(child: Text(r, style: T.h3))]),
             ),
           const SizedBox(height: 10),
-          const Text("We'll use this to reinforce the actions you take. Straight after you finish an action, this is yours.", style: T.sub),
+          const Text("Straight after each Micro-Action, you'll get one of these. Navoo matches a reward to each Micro-Action (a TV show suits the evening, not first thing), and you can change it any time.", style: T.sub),
           const SizedBox(height: 22),
           const Row(children: [
             _RewardWhy(Icons.bolt, NC.blueTint, NC.blue, 'Boosts\nmotivation'),
@@ -544,22 +548,23 @@ class RewardCardScreen extends StatelessWidget {
             _RewardWhy(Icons.star_border, NC.sageTint, NC.success, 'Helps it\nstick'),
           ]),
           const SizedBox(height: 26),
-          PrimaryButton('Save reward', testKey: const Key('reward_save'), onPressed: () => Navigator.pop(context, true)),
+          PrimaryButton('Save my rewards', testKey: const Key('reward_save'), onPressed: () => Navigator.pop(context, true)),
           const SizedBox(height: 12),
-          SoftButton('Edit my reward', onPressed: () async {
-            final c = TextEditingController(text: AppState.I.reward);
+          SoftButton('Edit my rewards', onPressed: () async {
+            final c = TextEditingController(text: AppState.I.rewards.join('\n'));
             final r = await showDialog<String>(
               context: context,
               builder: (_) => AlertDialog(
                 backgroundColor: NC.bg,
-                title: const Text('Your reward', style: T.h3),
-                content: TextField(controller: c, maxLines: 2, autofocus: true),
+                title: const Text('Your rewards', style: T.h3),
+                content: TextField(controller: c, minLines: 3, maxLines: 8, autofocus: true, decoration: const InputDecoration(helperText: 'One reward per line')),
                 actions: [FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save'))],
               ),
             );
-            if (r != null && r.trim().isNotEmpty) {
-              AppState.I.reward = r.trim();
-              AppState.I.rewards = [r.trim(), ...AppState.I.rewards.skip(1)];
+            final list = (r ?? '').split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            if (list.isNotEmpty) {
+              AppState.I.rewards = list.take(8).toList();
+              AppState.I.reward = list.first;
               await AppState.I.save();
               if (context.mounted) Navigator.pop(context, true);
             }
@@ -598,9 +603,9 @@ class SummaryScreen extends StatelessWidget {
         const SizedBox(height: 8),
         const Text("Here's a summary of what you've shared.", style: T.sub),
         const SizedBox(height: 20),
-        InfoCard(icon: Icons.track_changes, tint: NC.sageTint, iconColor: NC.success, label: 'Your vision', title: s.visionHeadline),
+        InfoCard(icon: Icons.track_changes, tint: NC.sageTint, iconColor: NC.success, label: 'Your Vision', title: s.visionHeadline),
         const SizedBox(height: 10),
-        InfoCard(icon: Icons.event_available, label: 'Your 30-day focus', title: s.focus),
+        InfoCard(icon: Icons.event_available, label: 'Your 30-Day Focus', title: s.focus),
         const SizedBox(height: 10),
         InfoCard(
             icon: Icons.warning_amber_rounded,

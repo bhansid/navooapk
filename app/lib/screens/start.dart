@@ -47,7 +47,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   static const pairs = [
-    ["I'm struggling today.", "That's okay. Let's spot what's getting in the way, then make your next step easier."],
+    ["I'm struggling today.", "That's okay. Let's spot what's getting in the way, then make your next Micro-Action easier."],
     ["I missed yesterday.", "That's useful to know. What got in the way? We'll adjust, not start over."],
     ["I'll start properly on Monday.", "You don't need to wait. What's one small thing that feels doable right now?"],
   ];
@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: const Row(children: [
                   _Trust(Icons.psychology_outlined, NC.sageTint, NC.success, 'Backed by\nbehavioural science'),
                   _Trust(Icons.favorite_border, NC.warmTint, NC.warning, 'Personalised\nto your life'),
-                  _Trust(Icons.bar_chart_rounded, NC.blueTint, NC.blue, 'Small steps.\nLasting change.'),
+                  _Trust(Icons.bar_chart_rounded, NC.blueTint, NC.blue, 'Small Micro-Actions.\nLasting change.'),
                 ]),
               ),
               const SizedBox(height: 14),
@@ -163,7 +163,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(child: Image.asset('assets/images/hero_welcome.jpg', fit: BoxFit.cover, width: double.infinity, alignment: Alignment.topCenter)),
+          Expanded(child: Image.asset('assets/images/hero_welcome.jpg', fit: BoxFit.cover, width: double.infinity, alignment: const Alignment(0.35, -0.2))),
           SafeArea(
             top: false,
             child: Padding(

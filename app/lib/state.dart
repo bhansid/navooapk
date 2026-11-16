@@ -19,7 +19,7 @@ class MicroAction {
   String description;
   String why;
   int minutes;
-  String status; // locked | active | done
+  String status; // locked | active | done | skipped (not done before a check-in; kept as history)
   String timing; // hour | today | days
   String ifCue;
   String thenDo;
@@ -185,7 +185,8 @@ class AppState extends ChangeNotifier {
 
   String rewardFor(MicroAction? a) => (a != null && a.reward.isNotEmpty) ? a.reward : reward;
 
-  List<MicroAction> get queue => actions.where((a) => a.status != 'done').toList();
+  List<MicroAction> get queue => actions.where((a) => a.status == 'locked' || a.status == 'active').toList();
+  List<int> get weeksWithActions => (actions.map((a) => a.week).toSet().toList()..sort((a, b) => b.compareTo(a)));
   List<MicroAction> get done => actions.where((a) => a.status == 'done').toList();
 
   int get focusDay {
@@ -208,7 +209,7 @@ class AppState extends ChangeNotifier {
       }
     }
     final best = buckets.entries.reduce((a, b) => a.value >= b.value ? a : b);
-    return '${best.key} (${best.value} of ${hours.length} actions)';
+    return '${best.key} (${best.value} of ${hours.length} Micro-Actions)';
   }
 
   bool get focusComplete => focusStart != null && focusDay > 30;
@@ -250,7 +251,7 @@ class AppState extends ChangeNotifier {
               },
         'coming_next': actions.where((a) => a.status == 'locked').map((a) => a.title).toList(),
         'completed': done.map((a) => {'title': a.title, 'felt': a.feeling, 'week': a.week, 'when': a.doneAt?.toIso8601String()}).toList(),
-        'all_previous_micro_actions': actions.map((a) => a.title).toList(),
+        'all_previous_micro_actions': actions.map((a) => {'title': a.title, 'week': a.week, 'status': a.status}).toList(),
         'learned_about_user': personalisedCoaching ? learnings : [],
         'basics': {
           'age': age,
