@@ -344,7 +344,7 @@ void showBrainScience(BuildContext context) {
         const Text('If/Then planning', style: T.h3),
         const SizedBox(height: 6),
         const Text(
-            'Deciding in advance "IF this happens, THEN I will do that" hands the decision to your brain before the moment arrives. A review of 94 studies found that If/Then planning makes a big difference to whether people actually do what they intend.',
+            'Deciding in advance "IF this happens, THEN I will do that" hands the decision to your brain before the moment arrives. This exercise is scientifically proven to make you 2-3 times more likely to complete the action (Gollwitzer and Sheeran, 2006: a meta-analysis of 94 studies).',
             style: T.body),
         const SizedBox(height: 14),
         const Text('Create a Physical Nudge', style: T.h3),
@@ -577,7 +577,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
           const Text('1. If/Then planning', style: T.h2),
           const SizedBox(height: 8),
           _explainer(Icons.science_outlined, 'Why this works',
-              'This exercise, called If/Then planning, is backed by a review of 94 studies: people who decide in advance "IF this moment comes, THEN I will..." are much more likely to follow through. Writing it in your own words is part of what makes it work.'),
+              'This exercise, called If/Then planning, is scientifically proven to make you 2-3 times more likely to complete the action. Writing it in your own words is part of what makes it work.'),
           const SizedBox(height: 12),
           _section('LINK IT TO A MOMENT IN YOUR DAY', Colors.white, [
             _box('IF', mIf, 'I have finished eating my lunch', NC.success, k: const Key('if_cue')),

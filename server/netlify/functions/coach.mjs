@@ -89,6 +89,49 @@ async function generate(system, contents, wantJson = true) {
   throw new Error(errors.join(" | ").slice(0, 900));
 }
 
+// Team knowledge: the Navoo team can teach the coach new rules, examples and facts live,
+// from /coach-brain.html, without an app update. Stored in Netlify Blobs; cached for 60s.
+let kCache = { at: 0, text: "" };
+async function teamKnowledge() {
+  if (Date.now() - kCache.at < 60_000) return kCache.text;
+  try {
+    const v = await getStore("coach-knowledge").get("current", { type: "json" });
+    kCache = { at: Date.now(), text: String(v?.text || "").slice(0, 20000) };
+  } catch {
+    kCache = { at: Date.now(), text: kCache.text };
+  }
+  return kCache.text;
+}
+const knowledgeBlock = (t) =>
+  t ? `\n\nNAVOO TEAM UPDATES (written by the Navoo team; follow these over the general guidance above, but never over SAFETY):\n${t}\n` : "";
+
+async function knowledgeAdmin(body) {
+  const key = process.env.NAVOO_ADMIN_KEY;
+  if (!key || body?.adminKey !== key) return json({ ok: false, error: "Wrong admin key" }, 403);
+  const store = getStore("coach-knowledge");
+  if (body.action === "set") {
+    const prev = await store.get("current", { type: "json" });
+    if (prev) await store.setJSON(`history/${new Date().toISOString()}`, prev);
+    const rec = { text: String(body.text || "").slice(0, 20000), by: String(body.by || "").slice(0, 80), at: new Date().toISOString() };
+    await store.setJSON("current", rec);
+    kCache = { at: 0, text: "" };
+    return json({ ok: true, saved: rec });
+  }
+  if (body.action === "history") {
+    const { blobs } = await store.list({ prefix: "history/" });
+    return json({ ok: true, versions: blobs.map((b) => b.key).sort().reverse().slice(0, 30) });
+  }
+  if (body.action === "feedback") {
+    const fb = getStore("satisfaction");
+    const { blobs } = await fb.list();
+    const items = [];
+    for (const b of blobs.slice(-50)) items.push(await fb.get(b.key, { type: "json" }));
+    return json({ ok: true, items });
+  }
+  const cur = await store.get("current", { type: "json" });
+  return json({ ok: true, current: cur || { text: "" } });
+}
+
 function profileBlock(profile) {
   if (!profile || typeof profile !== "object") return "No profile yet.";
   const s = JSON.stringify(profile, null, 1);
@@ -217,11 +260,15 @@ export default async (req) => {
       return json({ ok: true });
     }
 
+    if (mode === "knowledge") return await knowledgeAdmin(body);
+
+    const team = knowledgeBlock(await teamKnowledge());
+
     if (mode === "task") {
       const make = TASKS[task];
       if (!make) return json({ error: "Unknown task" }, 400);
       const out = await generate(
-        COACH_SYSTEM + "\n\nYou are now producing structured content for the app, not chatting. Follow every tone and safety rule.\nUser profile:\n" + profileBlock(profile),
+        COACH_SYSTEM + team + "\n\nYou are now producing structured content for the app, not chatting. Follow every tone and safety rule.\nUser profile:\n" + profileBlock(profile),
         [{ role: "user", parts: [{ text: make(data ?? {}) }] }],
       );
       return json({ ok: true, result: out });
@@ -240,7 +287,7 @@ export default async (req) => {
       return json({ ok: true, reply: CRISIS_REPLY, safety: "crisis", out_of_scope: false, learnings: [] });
     }
 
-    const system = `${COACH_SYSTEM}\n\nWHAT YOU KNOW ABOUT THIS USER (use it, don't make them repeat themselves):\n${profileBlock(profile)}\n${OUTPUT_RULES}`;
+    const system = `${COACH_SYSTEM}${team}\n\nWHAT YOU KNOW ABOUT THIS USER (use it, don't make them repeat themselves):\n${profileBlock(profile)}\n${OUTPUT_RULES}`;
     const out = await generate(system, trimmed);
     const safety = ["medical", "eating_disorder", "crisis"].includes(out.safety) ? out.safety : "none";
     if (safety === "crisis" || safety === "eating_disorder") await flagSafety(userId, safety, lastText);

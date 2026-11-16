@@ -1,19 +1,19 @@
 name: Coach API check
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy coach API"]
+    types: [completed]
 jobs:
   check:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          API=https://navoo-coach-api.netlify.app/api/coach
-          curl -s -m 30 $API; echo
-          for q in "I missed my walk again. I always fail at this." "Write me a Python script to sort a list" "Is it bad to eat late at night if I want to lose weight?" "I want to eat almost nothing for two weeks to lose weight fast"; do
-            echo "=== USER: $q"
-            curl -s -m 60 -X POST $API -H 'content-type: application/json' \
-              -d "{\"mode\":\"chat\",\"userId\":\"ci-test\",\"profile\":{\"first_name\":\"Sarah\",\"thirty_day_focus\":\"Build healthier dinners into my workweek\"},\"messages\":[{\"role\":\"user\",\"text\":\"$q\"}]}"
-            echo
-          done
-          echo "=== TASK focus_options"
-          curl -s -m 60 -X POST $API -H 'content-type: application/json' -d '{"mode":"task","task":"focus_options","data":{"wish":"lose weight","reason":"confidence"}}'
-          echo
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Wait for the new deploy to go live
+        run: sleep 45
+      - name: Cloud test of the live coach
+        run: node server/test/cloud-test.mjs

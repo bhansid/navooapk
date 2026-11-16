@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Navoo Coach Brain</title>
+<style>
+  :root { --navy:#1F2A44; --blue:#3E6AE1; --bg:#F7F5F0; --slate:#5B6475; --sage:#E6EFE6; --border:#E4E0D8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--navy); font:16px/1.5 Inter, system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+  img { height: 36px; }
+  h1 { font-size: 26px; margin: 18px 0 6px; }
+  p { color: var(--slate); margin: 6px 0 14px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:18px; padding:18px; margin:14px 0; }
+  label { font-weight:600; display:block; margin-bottom:6px; }
+  input, textarea { width:100%; border:1px solid var(--border); border-radius:12px; padding:12px; font:inherit; background:#fff; color:var(--navy); }
+  textarea { min-height: 380px; font: 14.5px/1.5 ui-monospace, Menlo, monospace; }
+  button { background:var(--blue); color:#fff; border:0; border-radius:12px; padding:12px 18px; font:600 15px Inter, system-ui, sans-serif; cursor:pointer; margin:8px 8px 0 0; }
+  button.soft { background:var(--sage); color:var(--navy); }
+  #msg { margin-top:10px; font-weight:600; }
+  ul { padding-left: 18px; color: var(--slate); }
+  pre { white-space: pre-wrap; background:#fafafa; border-radius:12px; padding:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <img src="logo_full.png" alt="Navoo">
+  <h1>Coach Brain</h1>
+  <p>Teach the Navoo coach new rules, examples and knowledge. Changes go live for every user within about a minute, with no app update. Safety rules always stay on top.</p>
+
+  <div class="card">
+    <label for="key">Admin key</label>
+    <input id="key" type="password" autocomplete="current-password" placeholder="Paste the admin key">
+    <button onclick="load()">Open</button>
+  </div>
+
+  <div class="card">
+    <label for="text">What the coach should know (plain English)</label>
+    <ul>
+      <li>Rules: "Always suggest a back-up meal option when evenings are the barrier."</li>
+      <li>Good and bad examples: "Good Micro-Action: ... Bad: ..."</li>
+      <li>Approved rewards, phrases to use or avoid, facts about the Navoo programme.</li>
+    </ul>
+    <textarea id="text" placeholder="Nothing yet."></textarea>
+    <label for="by" style="margin-top:12px">Your name</label>
+    <input id="by" placeholder="e.g. Rosie">
+    <button onclick="save()">Save and go live</button>
+    <button class="soft" onclick="history()">Previous versions</button>
+    <button class="soft" onclick="feedback()">User satisfaction answers</button>
+    <div id="msg"></div>
+    <pre id="out" hidden></pre>
+  </div>
+</main>
+<script>
+const API = '/api/coach';
+const $ = (id) => document.getElementById(id);
+try { $('key').value = sessionStorage.getItem('navooKey') || ''; } catch (e) {}
+async function call(body) {
+  const key = $('key').value.trim();
+  try { sessionStorage.setItem('navooKey', key); } catch (e) {}
+  const r = await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'knowledge', adminKey: key, ...body }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || 'Something went wrong');
+  return j;
+}
+function say(t) { $('msg').textContent = t; }
+async function load() {
+  try { const j = await call({ action: 'get' }); $('text').value = j.current.text || ''; say(j.current.at ? 'Last saved ' + new Date(j.current.at).toLocaleString() + (j.current.by ? ' by ' + j.current.by : '') : 'Nothing saved yet.'); }
+  catch (e) { say(e.message); }
+}
+async function save() {
+  try { const j = await call({ action: 'set', text: $('text').value, by: $('by').value }); say('Saved. Live for everyone within a minute (' + new Date(j.saved.at).toLocaleTimeString() + ').'); }
+  catch (e) { say(e.message); }
+}
+async function history() {
+  try { const j = await call({ action: 'history' }); $('out').hidden = false; $('out').textContent = j.versions.length ? j.versions.map((v) => v.replace('history/', '')).join('\n') : 'No previous versions yet.'; }
+  catch (e) { say(e.message); }
+}
+async function feedback() {
+  try { const j = await call({ action: 'feedback' }); $('out').hidden = false; $('out').textContent = JSON.stringify(j.items, null, 2) || 'None yet.'; }
+  catch (e) { say(e.message); }
+}
+</script>
+</body>
+</html>
