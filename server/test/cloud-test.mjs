@@ -92,5 +92,20 @@ ok("Tone: never says 'plan'", !hasPlan(c1.reply) && !hasPlan(c3.reply), c1.reply
 const k = await post({ mode: "knowledge", action: "get", adminKey: "wrong" });
 ok("Coach Brain rejects a wrong admin key", k.status === 403, JSON.stringify(k));
 
+// User data storage in Supabase: table exists, and row-level security hides every row from anyone not signed in.
+const SB = "https://lyhqicfvhbdcxyiufxbj.supabase.co", KEY = "sb_publishable_J0LjSWuhXHBEIE8Ug3s3Vg_rtBRAXUJ";
+try {
+  const r = await fetch(`${SB}/rest/v1/user_state?select=user_id&limit=5`, { headers: { apikey: KEY } });
+  const body = await r.text();
+  ok("Storage: user_state table exists", r.status === 200, `${r.status} ${body.slice(0, 200)}`);
+  ok("Storage: anonymous request sees no user data (RLS)", body.trim() === "[]", body.slice(0, 200));
+  const w = await fetch(`${SB}/rest/v1/user_state`, { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: JSON.stringify({ user_id: "00000000-0000-0000-0000-000000000000", state: {} }) });
+  ok("Storage: anonymous write is refused", w.status >= 400, String(w.status));
+  const d = await fetch(`${SB}/rest/v1/rpc/delete_me`, { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: "{}" });
+  ok("Storage: delete_me refused without a login", d.status >= 400, String(d.status));
+} catch (e) {
+  ok("Storage: reachable", false, String(e));
+}
+
 console.log(`\n${fails === 0 ? "ALL PASSED" : fails + " FAILED"}`);
 process.exit(fails ? 1 : 0);
