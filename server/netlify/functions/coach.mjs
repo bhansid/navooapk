@@ -121,6 +121,13 @@ async function knowledgeAdmin(body) {
     const { blobs } = await store.list({ prefix: "history/" });
     return json({ ok: true, versions: blobs.map((b) => b.key).sort().reverse().slice(0, 30) });
   }
+  if (body.action === "safety") {
+    const sf = getStore("safety-flags");
+    const { blobs } = await sf.list();
+    const items = [];
+    for (const b of blobs.slice(-50).reverse()) items.push(await sf.get(b.key, { type: "json" }));
+    return json({ ok: true, items });
+  }
   if (body.action === "feedback") {
     const fb = getStore("satisfaction");
     const { blobs } = await fb.list();

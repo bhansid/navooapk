@@ -49,6 +49,7 @@
     <button onclick="save()">Save and go live</button>
     <button class="soft" onclick="history()">Previous versions</button>
     <button class="soft" onclick="feedback()">User satisfaction answers</button>
+    <button class="soft" onclick="safety()">Safety alerts</button>
     <div id="msg"></div>
     <pre id="out" hidden></pre>
   </div>
@@ -76,6 +77,10 @@ async function save() {
 }
 async function history() {
   try { const j = await call({ action: 'history' }); $('out').hidden = false; $('out').textContent = j.versions.length ? j.versions.map((v) => v.replace('history/', '')).join('\n') : 'No previous versions yet.'; }
+  catch (e) { say(e.message); }
+}
+async function safety() {
+  try { const j = await call({ action: 'safety' }); $('out').hidden = false; $('out').textContent = j.items.length ? j.items.map((x) => x.at + '  ' + x.userId + '  [' + x.kind + ']\n' + x.text).join('\n\n') : 'No safety alerts.'; }
   catch (e) { say(e.message); }
 }
 async function feedback() {
