@@ -1033,8 +1033,13 @@ class NudgeScreen extends StatelessWidget {
     final a = AppState.I.currentAction;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+        // Scrolls on small screens or large text instead of overflowing.
+        child: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight - 28),
+              child: IntrinsicHeight(
           child: Column(children: [
             Row(children: [const NavooLogo(height: 26), const Spacer(), IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close))]),
             const Spacer(),
@@ -1054,6 +1059,9 @@ class NudgeScreen extends StatelessWidget {
             SoftButton('Not now', onPressed: () => Navigator.pop(context)),
             LinkText('Change this', onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)))),
           ]),
+              ),
+            ),
+          ),
         ),
       ),
     );
