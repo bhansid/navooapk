@@ -90,11 +90,12 @@ class _ProgressTabState extends State<ProgressTab> {
         const SizedBox(height: 6),
         const Text('Small actions. Real learning.', style: T.sub),
         const SizedBox(height: 18),
-        Row(children: [
+        IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Expanded(child: _Stat(icon: Icons.check_circle_outline, tint: NC.sageTint, color: NC.success, label: 'Micro-Actions done', value: '${s.done.length}')),
           const SizedBox(width: 10),
           Expanded(child: _Stat(icon: Icons.bar_chart_rounded, tint: NC.blueTint, color: NC.blue, label: 'Consistency', value: consistency)),
-        ]),
+        ])),
         const SizedBox(height: 12),
         if (lastDone != null) ...[
           InfoCard(
@@ -213,12 +214,12 @@ class _Stat extends StatelessWidget {
   const _Stat({required this.icon, required this.tint, required this.color, required this.label, required this.value});
   @override
   Widget build(BuildContext context) => Container(
-        height: 150,
+        constraints: const BoxConstraints(minHeight: 150),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: tint.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(22)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(width: 44, height: 44, decoration: BoxDecoration(color: tint, shape: BoxShape.circle), child: Icon(icon, color: color)),
-          const Spacer(),
+          const SizedBox(height: 18),
           Text(label.toUpperCase(), style: T.label),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: value.length > 6 ? 20 : 30, fontWeight: FontWeight.w700, color: NC.navy)),
