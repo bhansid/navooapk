@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
 import 'api.dart' show Auth;
+import 'cloud.dart';
 
 class ChatMsg {
   final String role; // user | assistant
@@ -175,6 +176,7 @@ class AppState extends ChangeNotifier {
   bool wellStretch = false;
   bool wellWalk = false;
   String? photoPath;
+  DateTime? updatedAt;
 
   MicroAction? get currentAction {
     for (final a in actions) {
@@ -340,6 +342,7 @@ class AppState extends ChangeNotifier {
         'wellStretch': wellStretch,
         'wellWalk': wellWalk,
         'photoPath': photoPath,
+        'updatedAt': updatedAt?.toIso8601String(),
       };
 
   List<String> _ls(dynamic v) => v is List ? v.map((e) => e.toString()).toList() : <String>[];
@@ -408,6 +411,7 @@ class AppState extends ChangeNotifier {
     wellStretch = j['wellStretch'] ?? false;
     wellWalk = j['wellWalk'] ?? false;
     photoPath = j['photoPath'];
+    updatedAt = DateTime.tryParse(j['updatedAt'] ?? '');
   }
 
   // ---- persistence (one record per account email) ----
@@ -415,6 +419,13 @@ class AppState extends ChangeNotifier {
   String get _key => 'navoo.user.${(email ?? 'guest').toLowerCase()}';
 
   Future<void> save() async {
+    updatedAt = DateTime.now();
+    await saveLocal();
+    Cloud.schedulePush();
+  }
+
+  /// Writes this phone's copy without marking it as a new change (used when restoring from the cloud).
+  Future<void> saveLocal() async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, jsonEncode(toJson()));
     await p.setString(_currentKey, email ?? '');
@@ -453,6 +464,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await Cloud.pushNow();
     try {
       if (Auth.remote) await sb_.Supabase.instance.client.auth.signOut();
     } catch (_) {}
@@ -465,6 +477,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteEverything() async {
+    await Cloud.deleteRemote();
+    try {
+      if (Auth.remote) await sb_.Supabase.instance.client.auth.signOut();
+    } catch (_) {}
     final p = await SharedPreferences.getInstance();
     await p.remove(_key);
     await p.remove('navoo.auth.${(email ?? '').toLowerCase()}');

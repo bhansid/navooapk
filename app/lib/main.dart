@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
 import 'api.dart';
 import 'device.dart';
 import 'state.dart';
+import 'cloud.dart';
 import 'theme.dart';
 import 'screens/start.dart';
 import 'screens/blueprint.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
       statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, systemNavigationBarColor: NC.bg));
   if (Auth.remote) await sb_.Supabase.initialize(url: kSupabaseUrl, anonKey: kSupabaseAnon, authOptions: const sb_.FlutterAuthClientOptions(authFlowType: sb_.AuthFlowType.pkce));
   await AppState.I.load();
+  if (Auth.remote) Cloud.pull(); // newer copy from another phone, if any
   Device.init();
   runApp(const NavooApp());
 }

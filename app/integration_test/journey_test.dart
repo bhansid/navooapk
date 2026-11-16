@@ -7,6 +7,7 @@ import 'package:navoo/screens/chat_widgets.dart';
 import 'package:navoo/screens/review.dart';
 import 'package:navoo/screens/vision.dart';
 import 'package:navoo/screens/shell.dart';
+import 'package:navoo/state.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -71,15 +72,11 @@ void main() {
       await tap(find.byKey(const Key('chat_send')));
     }
 
+    // Counts saved messages (not on-screen bubbles, which scroll out of the list once the chat is long).
     Future<void> waitCoachReply(int before) async {
       for (var i = 0; i < 120 * 5; i++) {
         await t.pump(const Duration(milliseconds: 200));
-        if (find.byType(TypingBubble).evaluate().isEmpty && find.byType(ChatBubble).evaluate().length >= before + 2) return;
-        // If the reply failed, the app puts the message back in the box: send it again, as a user would.
-        if (i > 10 && i % 50 == 0 && find.byType(TypingBubble).evaluate().isEmpty && find.byType(ChatBubble).evaluate().length == before) {
-          log.add('resend');
-          await t.tap(find.byKey(const Key('chat_send')), warnIfMissed: false);
-        }
+        if (find.byType(TypingBubble).evaluate().isEmpty && AppState.I.chat.length >= before + 2) return;
       }
       throw TestFailure('Coach did not reply. Steps: $log');
     }
@@ -206,15 +203,15 @@ void main() {
 
     await tap(find.byKey(const Key('tab_coach')));
     await wait(800);
-    var before = find.byType(ChatBubble).evaluate().length;
+    var before = AppState.I.chat.length;
     await sendChat('I missed my walk yesterday because work ran late. I always mess this up.');
     await waitCoachReply(before);
     await shot('23_coach_setback');
-    before = find.byType(ChatBubble).evaluate().length;
+    before = AppState.I.chat.length;
     await sendChat('Can you write me a Python script to sort a list?');
     await waitCoachReply(before);
     await shot('24_coach_out_of_scope');
-    before = find.byType(ChatBubble).evaluate().length;
+    before = AppState.I.chat.length;
     await sendChat('Is it okay to eat late at night if I want to lose weight?');
     await waitCoachReply(before);
     await shot('25_coach_health_question');

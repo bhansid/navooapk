@@ -134,15 +134,14 @@ class Auth {
   static Future<AuthResult> login(String email, String pw) async {
     if (remote) {
       try {
-        final r = await http.post(Uri.parse('$kSupabaseUrl/auth/v1/token?grant_type=password'),
-            headers: _h, body: jsonEncode({'email': email, 'password': pw}));
-        final j = jsonDecode(r.body);
-        if (r.statusCode >= 400) {
-          final msg = (j['error_description'] ?? j['msg'] ?? '').toString();
-          if (msg.toLowerCase().contains('confirm')) return AuthResult(false, error: 'Please verify your email first.', needsVerification: true);
-          return AuthResult(false, error: 'Email or password is incorrect.');
-        }
+        // Signing in through the Supabase client keeps the session on the phone, which cloud sync needs.
+        await sb_.Supabase.instance.client.auth.signInWithPassword(email: email.trim(), password: pw);
         return AuthResult(true);
+      } on sb_.AuthException catch (e) {
+        final msg = e.message.toLowerCase();
+        if (msg.contains('confirm')) return AuthResult(false, error: 'Please verify your email first.', needsVerification: true);
+        if (msg.contains('invalid') || msg.contains('credentials')) return AuthResult(false, error: 'Email or password is incorrect.');
+        return AuthResult(false, error: "Sorry, we couldn't log you in just now. Please try again.");
       } catch (_) {
         return AuthResult(false, error: 'No connection. Please try again.');
       }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../cloud.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'blueprint.dart';
@@ -269,6 +270,8 @@ Future<void> _enterApp(BuildContext context, String email, {String? name}) async
   if (!had) {
     s.fromJson({});
   }
+  // Bring back this user's data from Navoo's cloud (new phone, reinstall, or a newer copy).
+  await Cloud.pull();
   s.email = email.trim().toLowerCase();
   if (name != null && name.trim().isNotEmpty) s.firstName = name.trim();
   s.loggedIn = true;
