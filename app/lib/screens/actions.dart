@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api.dart';
 import '../device.dart';
 import '../state.dart';
@@ -87,24 +88,80 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
     if (mounted) setState(() => loading = false);
   }
 
+/// B1: edit title and description together; the Micro-Actions after it are rebuilt to follow on.
   Future<void> _edit(MicroAction a) async {
-    final c = TextEditingController(text: a.title);
-    final r = await showDialog<String>(
+    final t = TextEditingController(text: a.title), d = TextEditingController(text: a.description);
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: NC.bg,
-        title: const Text('Change this step', style: T.h3),
-        content: TextField(controller: c, autofocus: true, maxLines: 2),
+        title: const Text('Change this Micro-Action', style: T.h3),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
+            const SizedBox(height: 10),
+            TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details (optional)')),
+          ]),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
         ],
       ),
     );
-    if (r != null && r.trim().isNotEmpty) {
-      setState(() => a.title = r.trim());
-      await s.save();
+    if (ok != true || t.text.trim().isEmpty) return;
+    final changedTitle = t.text.trim() != a.title;
+    setState(() {
+      a.title = t.text.trim();
+      a.description = d.text.trim();
+      if (changedTitle) a.codesDone = false;
+    });
+    if (changedTitle) await _rebuildAfter(a);
+    await s.save();
+  }
+
+  Future<void> _rebuildAfter(MicroAction edited) async {
+    final idx = s.actions.indexOf(edited);
+    final later = s.actions.skip(idx + 1).where((x) => x.status == 'locked').toList();
+    if (later.isEmpty) return;
+    setState(() => loading = true);
+    final r = await Coach.task('actions', {
+      'focus': s.focus,
+      'vision': s.visionHeadline,
+      'obstacles': s.obstaclesText,
+      'fixed_first_micro_actions': s.actions.take(idx + 1).map((x) => x.title).toList(),
+      'how_many': later.length,
+      'instruction': 'The user changed a Micro-Action. Write the next ${later.length} so they build directly on the fixed ones above.',
+    });
+    final list = parseActions(r, 'actions', s.week);
+    if (list.isNotEmpty) {
+      s.actions.removeWhere((x) => later.contains(x));
+      s.actions.addAll(list.take(later.length));
     }
+    if (mounted) setState(() => loading = false);
+  }
+
+  /// P5: a fresh set if these don't fit.
+  Future<void> _suggestDifferent() async {
+    setState(() => loading = true);
+    final previous = s.queue.map((x) => x.title).toList();
+    final r = await Coach.task('actions', {
+      'focus': s.focus,
+      'vision': s.visionHeadline,
+      'obstacles': s.obstaclesText,
+      'rejected_suggestions': previous,
+      'instruction': 'The user wants different Micro-Actions. Do not reuse or reword the rejected ones.',
+    });
+    final list = parseActions(r, 'actions', s.week);
+    if (list.isNotEmpty) {
+      s.actions.removeWhere((x) => x.status != 'done');
+      s.actions.addAll(list);
+      s.activateNext();
+      await s.save();
+    } else if (mounted) {
+      toast(context, "Couldn't reach the coach. Try again in a moment.");
+    }
+    if (mounted) setState(() => loading = false);
   }
 
   @override
@@ -117,9 +174,9 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
           : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), children: [
               const NavooLogo(height: 28),
               const SizedBox(height: 16),
-              const Text('Your first steps', style: T.h1),
+              const Text('Your first Micro-Actions', style: T.h1),
               const SizedBox(height: 8),
-              Text('Towards "${s.focus}". We\'ll start with one simple step, then build on it.', style: T.sub),
+              Text('Towards "${s.focus}". We\'ll start with one simple Micro-Action, then build on it.', style: T.sub),
               const SizedBox(height: 18),
               for (var i = 0; i < q.length; i++)
                 Padding(
@@ -142,7 +199,7 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(q[i].status == 'active' ? 'STEP ${i + 1}' : 'COMING NEXT', style: T.label),
+                              Text(q[i].status == 'active' ? 'MICRO-ACTION ${i + 1}' : 'COMING NEXT', style: T.label),
                               const SizedBox(height: 4),
                               Text(q[i].title, style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, color: q[i].status == 'active' ? NC.navy : NC.slate)),
                               if (q[i].description.isNotEmpty) Text(q[i].description, style: T.small),
@@ -155,9 +212,11 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
                   ),
                 ),
               const SizedBox(height: 6),
-              const Text('Tap a step to change it.', style: T.small),
+              const Text('Tap a Micro-Action to change it.', style: T.small),
+              const SizedBox(height: 6),
+              SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: _suggestDifferent),
               const SizedBox(height: 20),
-              const Text('When could you realistically do this first step?', style: T.h3),
+              const Text('When could you realistically do the first one?', style: T.h3),
               const SizedBox(height: 12),
               _timingTile('hour', Icons.schedule, NC.blueTint, NC.blue, 'In the next hour', 'Get it done while it is fresh.'),
               _timingTile('today', Icons.today_outlined, NC.sageTint, NC.success, 'Today', 'Find a time that works for you.'),
@@ -205,43 +264,123 @@ class _FirstStepsScreenState extends State<FirstStepsScreen> {
       );
 }
 
-/// Screen 18 — If/Then, made easy: tap a moment, the action is pre-filled, everything else is optional.
+/// Screen 18 — Brain Cheat Codes (C7–C12): If/Then planning (moment + slip-up) and a Physical Nudge,
+/// drafted by the user with Navoo's ideas beside each box. Shown for every Micro-Action, with Skip.
 class IfThenScreen extends StatefulWidget {
   final bool fromHome;
-  const IfThenScreen({super.key, this.fromHome = false});
+  final bool unlocked;
+  const IfThenScreen({super.key, this.fromHome = false, this.unlocked = false});
   @override
   State<IfThenScreen> createState() => _IfThenScreenState();
+}
+
+String cleanIf(String t) {
+  var x = t.trim();
+  for (final w in ['if ', 'when ', 'whenever ', 'once ']) {
+    if (x.toLowerCase().startsWith(w)) x = x.substring(w.length).trim();
+  }
+  if (x.endsWith(',') || x.endsWith('.')) x = x.substring(0, x.length - 1);
+  return x;
+}
+
+String cleanThen(String t) {
+  var x = t.trim();
+  if (x.toLowerCase().startsWith('then ')) x = x.substring(5).trim();
+  if (x.endsWith('.')) x = x.substring(0, x.length - 1);
+  return x;
+}
+
+/// "IF I …, THEN I will …" with IF and THEN highlighted (C9).
+class IfThenLine extends StatelessWidget {
+  final String ifText, thenText;
+  final double size;
+  const IfThenLine(this.ifText, this.thenText, {super.key, this.size = 15.5});
+  @override
+  Widget build(BuildContext context) => Text.rich(
+        TextSpan(style: TextStyle(fontSize: size, color: NC.navy, height: 1.4), children: [
+          const TextSpan(text: 'IF ', style: TextStyle(fontWeight: FontWeight.w800, color: NC.success)),
+          TextSpan(text: '$ifText, '),
+          const TextSpan(text: 'THEN ', style: TextStyle(fontWeight: FontWeight.w800, color: NC.blue)),
+          TextSpan(text: thenText),
+        ]),
+      );
+}
+
+void showBrainScience(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: NC.bg,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (_) => Padding(
+      padding: const EdgeInsets.fromLTRB(26, 26, 26, 36),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('The science behind Brain Cheat Codes', style: T.h2),
+        const SizedBox(height: 14),
+        const Text('If/Then planning', style: T.h3),
+        const SizedBox(height: 6),
+        const Text(
+            'Deciding in advance "IF this happens, THEN I will do that" hands the decision to your brain before the moment arrives. A review of 94 studies found that If/Then planning makes a big difference to whether people actually do what they intend.',
+            style: T.body),
+        const SizedBox(height: 14),
+        const Text('Create a Physical Nudge', style: T.h3),
+        const SizedBox(height: 6),
+        const Text(
+            'Small changes to your surroundings make the right choice the easy one: the cue is visible and the effort is lower when you are tired.',
+            style: T.body),
+        const SizedBox(height: 14),
+        LinkText('Read the study (Gollwitzer & Sheeran, 2006)',
+            onTap: () => launchUrl(Uri.parse('https://doi.org/10.1016/S0065-2601(06)38002-1'), mode: LaunchMode.externalApplication)),
+      ]),
+    ),
+  );
 }
 
 class _IfThenScreenState extends State<IfThenScreen> {
   final s = AppState.I;
   late final a = s.currentAction!;
-  late final ifC = TextEditingController(text: a.ifCue);
-  late final thenC = TextEditingController(text: a.thenDo.isNotEmpty ? a.thenDo : _defaultThen());
-  late final bIfC = TextEditingController(text: a.backupIf);
-  late final bThenC = TextEditingController(text: a.backupThen);
-  late final setupC = TextEditingController(text: a.setup);
-  bool busy = false;
-  String comment = '';
-  List<Map<String, String>> ideas = [];
-  bool ideasLoading = true;
+  late final mIf = TextEditingController(text: a.ifCue);
+  late final mThen = TextEditingController(text: a.thenDo.isNotEmpty ? a.thenDo : _defaultThen());
+  late final sIf = TextEditingController(text: a.backupIf);
+  late final sThen = TextEditingController(text: a.backupThen);
+  late final nudge = TextEditingController(text: a.setup);
+  late String reward = s.rewardFor(a);
   late int trigH = a.triggerHour;
   late int trigM = a.triggerMinute;
+  bool loading = true;
+  String error = '';
+  List<Map<String, String>> momentIdeas = [], slipIdeas = [];
+  List<String> nudgeIdeas = [];
+
+  String _defaultThen() {
+    final t = a.title.trim();
+    return t.isEmpty ? '' : 'I will ${t[0].toLowerCase()}${t.substring(1)}';
+  }
+
+  List<Map<String, String>> _pairs(dynamic l) => (l is List)
+      ? l.whereType<Map>().map((m) => {'if': cleanIf('${m['if'] ?? ''}'), 'then': cleanThen('${m['then'] ?? ''}')}).where((m) => m['if']!.isNotEmpty).take(3).toList()
+      : <Map<String, String>>[];
 
   @override
   void initState() {
     super.initState();
-    Coach.task('ifthen_suggestions', {
-      'action': a.title,
+    Coach.task('brain_cheat_codes', {
+      'micro_action': a.title,
+      'description': a.description,
       'timing': a.timing,
+      'thirty_day_focus': s.focus,
+      'vision': s.visionHeadline,
       'obstacles': s.obstaclesText,
-      'routine_and_life': s.coachProfile()['basics'],
-      'learned': s.learnings,
+      'rewards_menu': s.rewards,
     }).then((r) {
-      final l = (r?['suggestions'] is List) ? (r!['suggestions'] as List).whereType<Map>().map((m) => {'if': _clean('${m['if'] ?? ''}', 'if'), 'then': _clean('${m['then'] ?? ''}', 'then')}).where((m) => m['if']!.isNotEmpty).take(3).toList() : <Map<String, String>>[];
-      if (mounted) setState(() {
-        ideas = l;
-        ideasLoading = false;
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        momentIdeas = _pairs(r?['moment_ideas']);
+        slipIdeas = _pairs(r?['slip_up_ideas']);
+        nudgeIdeas = (r?['nudge_ideas'] is List) ? (r!['nudge_ideas'] as List).map((e) => '$e').where((e) => e.isNotEmpty).take(3).toList() : [];
+        final sug = '${r?['reward_suggestion'] ?? ''}';
+        if (a.reward.isEmpty && s.rewards.contains(sug)) reward = sug;
       });
     });
   }
@@ -254,65 +393,39 @@ class _IfThenScreenState extends State<IfThenScreen> {
     });
   }
 
-  static const moments = [
-    'I finish my morning coffee',
-    'I sit down for lunch',
-    'I get home from work',
-    'I finish dinner',
-    'I put the kids to bed',
-    'I sit down on the sofa',
-  ];
-
-  String _defaultThen() {
-    final t = a.title.trim();
-    if (t.isEmpty) return '';
-    return "I'll ${t[0].toLowerCase()}${t.substring(1)}";
-  }
-
-  String _defaultIf() => switch (a.timing) {
-        'hour' => 'I finish what I\'m doing now',
-        'today' => 'I get a free moment today',
-        _ => 'I have a quiet moment in the next few days',
-      };
-
-  Future<void> suggest() async {
-    setState(() => busy = true);
-    final r = await Coach.task('improve_ifthen', {
-      'action': a.title,
-      'if': ifC.text,
-      'then': thenC.text,
-      'note': ifC.text.trim().isEmpty ? 'The user has not picked a moment yet. Suggest a realistic one from what you know about them.' : '',
-      'obstacles': s.obstaclesText,
-    });
-    if (!mounted) return;
-    setState(() {
-      busy = false;
-      if (r != null) {
-        if ('${r['if'] ?? ''}'.isNotEmpty) ifC.text = _clean('${r['if']}', 'if');
-        if ('${r['then'] ?? ''}'.isNotEmpty) thenC.text = _clean('${r['then']}', 'then');
-        if ('${r['backup_if'] ?? ''}'.isNotEmpty) bIfC.text = _clean('${r['backup_if']}', 'if');
-        if ('${r['backup_then'] ?? ''}'.isNotEmpty) bThenC.text = _clean('${r['backup_then']}', 'then');
-        if (setupC.text.trim().isEmpty && '${r['setup'] ?? ''}'.isNotEmpty) setupC.text = '${r['setup']}';
-        comment = '${r['comment'] ?? ''}';
-      } else {
-        comment = "I couldn't reach the coach just now. Pick a moment above and you're set.";
-      }
-    });
-  }
-
   Future<void> lockIn() async {
-    a.ifCue = ifC.text.trim().isEmpty ? _defaultIf() : _clean(ifC.text, 'if');
-    a.thenDo = thenC.text.trim().isEmpty ? _defaultThen() : _clean(thenC.text, 'then');
-    a.backupIf = _clean(bIfC.text, 'if');
-    a.backupThen = _clean(bThenC.text, 'then');
-    a.setup = setupC.text.trim();
+    final missing = <String>[];
+    if (mIf.text.trim().isEmpty || mThen.text.trim().isEmpty) missing.add('your moment');
+    if (sIf.text.trim().isEmpty || sThen.text.trim().isEmpty) missing.add('your slip-up plan');
+    if (nudge.text.trim().isEmpty) missing.add('your Physical Nudge');
+    if (missing.isNotEmpty) {
+      setState(() => error = 'Add ${missing.join(', ')} to lock this in. Tap one of Navoo\'s ideas if you\'re stuck, or choose "Skip for now".');
+      return;
+    }
+    a.ifCue = cleanIf(mIf.text);
+    a.thenDo = cleanThen(mThen.text);
+    a.backupIf = cleanIf(sIf.text);
+    a.backupThen = cleanThen(sThen.text);
+    a.setup = nudge.text.trim();
+    a.reward = reward;
     a.triggerHour = trigH;
     a.triggerMinute = trigM;
+    a.codesDone = true;
     await s.save();
-    Coach.task('nudges', {'action': a.title, 'if': a.ifCue, 'then': a.thenDo, 'identity': s.identity}).then((r) {
+    Coach.task('nudges', {'action': a.title, 'if': a.ifCue, 'then': a.thenDo, 'identity': s.identity, 'physical_nudge': a.setup}).then((r) {
       final list = (r?['nudges'] is List) ? (r!['nudges'] as List).whereType<Map>().map((m) => {'type': '${m['type']}', 'text': '${m['text']}'}).toList() : <Map<String, String>>[];
       Device.reschedule(nudges: list);
     });
+    _leave();
+  }
+
+  Future<void> skip() async {
+    a.reward = reward;
+    await s.save();
+    _leave();
+  }
+
+  void _leave() {
     if (!mounted) return;
     if (widget.fromHome) {
       Navigator.pop(context);
@@ -321,154 +434,208 @@ class _IfThenScreenState extends State<IfThenScreen> {
     }
   }
 
-  String _clean(String t, String word) {
-    var x = t.trim();
-    if (x.toLowerCase().startsWith('$word ')) x = x.substring(word.length + 1);
-    if (x.endsWith('.')) x = x.substring(0, x.length - 1);
-    return x;
-  }
+  Widget _explainer(IconData icon, String title, String body) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: NC.sageTint, borderRadius: BorderRadius.circular(16)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: NC.success, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: NC.navy, fontSize: 15.5)),
+              const SizedBox(height: 4),
+              Text(body, style: T.small),
+            ]),
+          ),
+        ]),
+      );
 
-  Widget _optional(String title, IconData icon, Color tint, List<Widget> children) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(18)),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            leading: Icon(icon, color: NC.navy),
-            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: NC.navy, fontSize: 15.5)),
-            subtitle: const Text('Optional', style: T.small),
-            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: children,
+  Widget _box(String tag, TextEditingController c, String hint, Color color, {Key? k}) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 62,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+            child: Text(tag, style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              key: k,
+              controller: c,
+              minLines: 1,
+              maxLines: 6,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() => error = ''),
+              decoration: InputDecoration(hintText: hint),
+            ),
+          ),
+        ]),
+      );
+
+  Widget _ideas(List<Map<String, String>> list, TextEditingController ifC, TextEditingController thenC, String keyPrefix) {
+    if (loading) {
+      return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 10), Text('Navoo is thinking of ideas...', style: T.small)]));
+    }
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('IDEAS FROM NAVOO (TAP TO USE, THEN MAKE IT YOURS)', style: T.label),
+      const SizedBox(height: 6),
+      for (var k = 0; k < list.length; k++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              key: Key('${keyPrefix}_$k'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() {
+                ifC.text = list[k]['if']!;
+                if (list[k]['then']!.isNotEmpty) thenC.text = list[k]['then']!;
+                error = '';
+              }),
+              child: Padding(padding: const EdgeInsets.all(12), child: IfThenLine(list[k]['if']!, list[k]['then']!, size: 14.5)),
+            ),
           ),
         ),
+    ]);
+  }
+
+  Widget _section(String label, Color tint, List<Widget> children) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: T.label), const SizedBox(height: 10), ...children]),
       );
 
   @override
   Widget build(BuildContext context) => NavooScaffold(
         step: widget.fromHome ? null : 5,
         body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-          const Text('When will you do it?', style: T.h1),
-          const SizedBox(height: 8),
-          Text('Link "${a.title}" to a moment that already happens in your day. Pick one of my ideas, or write your own.', style: T.sub),
-          const SizedBox(height: 16),
-          const Text('IDEAS BASED ON WHAT YOU TOLD ME', style: T.label),
-          const SizedBox(height: 10),
-          if (ideasLoading)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Row(children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 12), Text('Thinking of ideas that fit your day...', style: T.small)]))
-          else if (ideas.isNotEmpty)
-            for (var k = 0; k < ideas.length; k++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Material(
-                  color: ifC.text == ideas[k]['if'] ? NC.blueTint : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    key: Key('idea_$k'),
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => setState(() {
-                      ifC.text = ideas[k]['if']!;
-                      thenC.text = ideas[k]['then']!.isNotEmpty ? ideas[k]['then']! : thenC.text;
-                    }),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(children: [
-                        const Icon(Icons.auto_awesome_outlined, color: NC.blue, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text('If ${ideas[k]['if']}, then ${ideas[k]['then']}.', style: const TextStyle(fontSize: 15.5, color: NC.navy, height: 1.35))),
-                      ]),
-                    ),
-                  ),
-                ),
-              )
-          else
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final m in moments)
-                ActionChip(
-                  label: Text(m),
-                  backgroundColor: NC.blueTint,
-                  side: BorderSide.none,
-                  shape: const StadiumBorder(),
-                  labelStyle: const TextStyle(color: NC.navy, fontSize: 14.5),
-                  onPressed: () => setState(() => ifC.text = m),
-                ),
-            ]),
-          const SizedBox(height: 10),
-          const Text('YOUR OWN WORDS (EDIT FREELY)', style: T.label),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: NC.border)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('IF', style: TextStyle(fontWeight: FontWeight.w700, color: NC.success, letterSpacing: 1.2)),
-              TextField(
-                key: const Key('if_cue'),
-                controller: ifC,
-                onChanged: (_) => setState(() {}),
-                minLines: 1,
-                maxLines: 3,
-                decoration: const InputDecoration(hintText: 'Pick a moment above or type your own', filled: false, border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 8)),
-                style: const TextStyle(fontSize: 17, color: NC.navy),
-              ),
-              const Divider(color: NC.border),
-              const Text('THEN', style: TextStyle(fontWeight: FontWeight.w700, color: NC.blue, letterSpacing: 1.2)),
-              TextField(
-                key: const Key('then_do'),
-                controller: thenC,
-                minLines: 1,
-                maxLines: 3,
-                decoration: const InputDecoration(filled: false, border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 8)),
-                style: const TextStyle(fontSize: 17, color: NC.navy),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 10),
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            child: ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: NC.border)),
-              leading: const Icon(Icons.notifications_active_outlined, color: NC.blue),
-              title: Text(trigH >= 0 ? 'Nudge me around ${trigH % 12 == 0 ? 12 : trigH % 12}:${trigM.toString().padLeft(2, '0')} ${trigH < 12 ? 'AM' : 'PM'}' : 'Roughly what time is that?', style: const TextStyle(color: NC.navy, fontWeight: FontWeight.w500)),
-              subtitle: const Text('Optional. I\'ll send your own words at that moment.', style: T.small),
-              trailing: trigH >= 0 ? IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() => trigH = -1)) : const Icon(Icons.chevron_right),
-              onTap: pickTime,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SoftButton(busy ? 'Thinking...' : 'Tidy it up for me', icon: Icons.auto_awesome_outlined, onPressed: busy ? null : suggest),
-          if (comment.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: NC.blueTint, borderRadius: BorderRadius.circular(16)),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const CoachAvatar(size: 32),
-                const SizedBox(width: 10),
-                Expanded(child: Text(comment, style: T.body)),
-              ]),
-            ),
+          if (widget.unlocked) ...[
+            const Text('NEXT MICRO-ACTION UNLOCKED', style: T.label),
+            const SizedBox(height: 6),
           ],
-          const SizedBox(height: 16),
-          _optional('Add a backup option', Icons.sync, NC.warmTint, [
-            const Text('For when life gets in the way.', style: T.small),
-            const SizedBox(height: 10),
-            TextField(controller: bIfC, decoration: const InputDecoration(labelText: 'If...', hintText: 'I run out of time or energy')),
-            const SizedBox(height: 10),
-            TextField(controller: bThenC, decoration: const InputDecoration(labelText: 'Then...', hintText: 'I\'ll do a 2-minute version')),
+          const Text('Your Brain Cheat Codes', style: T.h1),
+          const SizedBox(height: 8),
+          Text('For "${a.title}".', style: T.sub),
+          const SizedBox(height: 14),
+          Material(
+            color: NC.blueTint,
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => showBrainScience(context),
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.psychology_outlined, color: NC.blue, size: 26),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text("The science! Let's plan some brain shortcuts so you don't just rely on willpower.",
+                          style: TextStyle(fontWeight: FontWeight.w600, color: NC.navy, fontSize: 16, height: 1.35)),
+                      SizedBox(height: 6),
+                      Text('See the science', style: TextStyle(color: NC.blue, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text('1. If/Then planning', style: T.h2),
+          const SizedBox(height: 8),
+          _explainer(Icons.science_outlined, 'Why this works',
+              'Deciding in advance what you\'ll do in a specific moment means you don\'t have to rely on willpower when it arrives. Writing it in your own words is part of what makes it work.'),
+          const SizedBox(height: 12),
+          _section('LINK IT TO A MOMENT IN YOUR DAY', Colors.white, [
+            _box('IF', mIf, 'I have finished eating my lunch', NC.success, k: const Key('if_cue')),
+            _box('THEN', mThen, 'I will …', NC.blue, k: const Key('then_do')),
+            _ideas(momentIdeas, mIf, mThen, 'idea'),
+            const SizedBox(height: 4),
+            Material(
+              color: NC.bg,
+              borderRadius: BorderRadius.circular(14),
+              child: ListTile(
+                dense: true,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                leading: const Icon(Icons.notifications_active_outlined, color: NC.blue),
+                title: Text(trigH >= 0 ? 'Nudge me around ${trigH % 12 == 0 ? 12 : trigH % 12}:${trigM.toString().padLeft(2, '0')} ${trigH < 12 ? 'AM' : 'PM'}' : 'Roughly what time is that? (optional)',
+                    style: const TextStyle(color: NC.navy, fontWeight: FontWeight.w500)),
+                trailing: trigH >= 0 ? IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() => trigH = -1)) : const Icon(Icons.chevron_right),
+                onTap: pickTime,
+              ),
+            ),
           ]),
-          _optional('Make it easier around you', Icons.home_outlined, NC.lilacTint, [
-            const Text('A small change to your surroundings, like a note on the fridge.', style: T.small),
+          _section('PLAN FOR A SLIP-UP', NC.warmTint, [
+            const Text('What will you do if your motivation drops or the barrier shows up?', style: T.body),
             const SizedBox(height: 10),
-            TextField(controller: setupC, minLines: 1, maxLines: 3, decoration: const InputDecoration(hintText: 'e.g. trainers by the door')),
+            _box('IF', sIf, 'I am too tired when I get home', NC.success, k: const Key('slip_if')),
+            _box('THEN', sThen, 'I will remind myself of my Vision', NC.blue, k: const Key('slip_then')),
+            _ideas(slipIdeas, sIf, sThen, 'slip'),
           ]),
           const SizedBox(height: 4),
-          const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.science_outlined, color: NC.success, size: 20),
-            SizedBox(width: 8),
-            Expanded(child: Text('Linking an action to a moment you already have makes it far easier to remember and do.', style: T.small)),
+          const Text('2. Create a Physical Nudge', style: T.h2),
+          const SizedBox(height: 8),
+          _explainer(Icons.home_work_outlined, 'Why this works',
+              'Your surroundings shape what you do, especially when you\'re tired. One small change makes the right choice the easy, visible one.'),
+          const SizedBox(height: 12),
+          _section('YOUR PHYSICAL NUDGE', NC.lilacTint, [
+            TextField(
+              key: const Key('nudge'),
+              controller: nudge,
+              minLines: 1,
+              maxLines: 6,
+              onChanged: (_) => setState(() => error = ''),
+              decoration: const InputDecoration(hintText: 'e.g. leave the ingredients on the worktop before work'),
+            ),
+            const SizedBox(height: 8),
+            if (nudgeIdeas.isNotEmpty) ...[
+              const Text('IDEAS FROM NAVOO', style: T.label),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (var k = 0; k < nudgeIdeas.length; k++)
+                  ActionChip(
+                    key: Key('nudge_$k'),
+                    label: Text(nudgeIdeas[k]),
+                    backgroundColor: Colors.white,
+                    side: BorderSide.none,
+                    labelStyle: const TextStyle(color: NC.navy, fontSize: 14),
+                    onPressed: () => setState(() {
+                      nudge.text = nudgeIdeas[k];
+                      error = '';
+                    }),
+                  ),
+              ]),
+            ],
           ]),
-          const SizedBox(height: 16),
-          PrimaryButton('Lock this in', trailingArrow: true, onPressed: lockIn, testKey: const Key('ifthen_lock')),
+          if (s.rewards.isNotEmpty)
+            _section('YOUR REWARD FOR THIS MICRO-ACTION', NC.sageTint, [
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final r in s.rewards)
+                  ChoiceChip(
+                    label: Text(r),
+                    selected: reward == r,
+                    showCheckmark: false,
+                    selectedColor: NC.success,
+                    backgroundColor: Colors.white,
+                    side: BorderSide.none,
+                    labelStyle: TextStyle(color: reward == r ? Colors.white : NC.navy, fontSize: 14),
+                    onSelected: (_) => setState(() => reward = r),
+                  ),
+              ]),
+            ]),
+          if (error.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(error, style: const TextStyle(color: NC.error))),
+          PrimaryButton('Lock in my Brain Cheat Codes', trailingArrow: true, onPressed: lockIn, testKey: const Key('ifthen_lock')),
+          const SizedBox(height: 6),
+          Center(child: LinkText('Skip for now', onTap: skip)),
         ]),
       );
 }
@@ -534,7 +701,17 @@ class ReadyScreen extends StatelessWidget {
   }
 }
 
-/// Screen 21 — action detail with the big 3D Done button.
+Widget _codeCard(String label, String ifT, String thenT, Color tint) => Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: tint.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(20)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label.toUpperCase(), style: T.label),
+        const SizedBox(height: 6),
+        IfThenLine(ifT, thenT, size: 16.5),
+      ]),
+    );
+
+/// Screen 21 — Micro-Action detail with the big 3D Done button.
 class ActionDetailScreen extends StatelessWidget {
   const ActionDetailScreen({super.key});
   @override
@@ -549,21 +726,19 @@ class ActionDetailScreen extends StatelessWidget {
         const SizedBox(height: 18),
         if (a.why.isNotEmpty) ...[InfoCard(icon: Icons.lightbulb_outline, tint: NC.sageTint, iconColor: NC.success, label: 'Why this matters', title: a.why), const SizedBox(height: 10)],
         if (a.ifCue.isNotEmpty) ...[
-          InfoCard(icon: Icons.track_changes, tint: NC.lilacTint, iconColor: const Color(0xFF7A62B8), label: 'Your trigger', title: 'If ${a.ifCue}'),
-          const SizedBox(height: 10),
-          InfoCard(icon: Icons.bolt, tint: NC.warmTint, iconColor: NC.warning, label: 'Your action', title: 'Then ${a.thenDo}'),
+          _codeCard('Your Brain Cheat Code', a.ifCue, a.thenDo, NC.lilacTint),
           const SizedBox(height: 10),
         ],
         if (a.backupThen.isNotEmpty) ...[
-          InfoCard(icon: Icons.sync, tint: NC.roseTint, iconColor: NC.error, label: 'Your backup', title: 'If ${a.backupIf}, then ${a.backupThen}'),
+          _codeCard('If you slip', a.backupIf, a.backupThen, NC.warmTint),
           const SizedBox(height: 10),
         ],
-        if (a.setup.isNotEmpty) ...[InfoCard(icon: Icons.home_outlined, label: 'Your setup', title: a.setup), const SizedBox(height: 10)],
-        if (s.reward.isNotEmpty) InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your reward', title: s.reward),
+        if (a.setup.isNotEmpty) ...[InfoCard(icon: Icons.home_work_outlined, label: 'Your Physical Nudge', title: a.setup), const SizedBox(height: 10)],
+        if (s.rewardFor(a).isNotEmpty) InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your reward', title: s.rewardFor(a)),
         const SizedBox(height: 22),
         PrimaryButton('Done', icon: Icons.check_circle, pressable3d: true, testKey: const Key('detail_done'), onPressed: () => completeAction(context)),
         const SizedBox(height: 12),
-        SoftButton('Change when I do it', icon: Icons.edit_outlined,
+        SoftButton(a.codesDone ? 'Edit my Brain Cheat Codes' : 'Set up my Brain Cheat Codes', icon: Icons.psychology_outlined,
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)))),
         const SizedBox(height: 10),
         SoftButton('Talk to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () => openCoach(context, preset: "I'm working on: ${a.title}. ")),
@@ -609,11 +784,27 @@ class _CelebrationScreenState extends State<CelebrationScreen> with SingleTicker
     final s = AppState.I;
     widget.done.feeling = feel;
     await s.save();
+    Coach.task('insights', {
+      'just_completed': widget.done.title,
+      'felt': feel,
+      'hour_of_day': widget.done.doneAt?.hour,
+      'if_then_used': widget.done.ifCue.isEmpty ? null : 'IF ${widget.done.ifCue}, THEN ${widget.done.thenDo}',
+      'physical_nudge': widget.done.setup,
+    }).then((r) async {
+      if (r?['insights'] is List) {
+        s.addLearnings((r!['insights'] as List).map((e) => '$e').toList());
+        await s.save();
+      }
+    });
     if (!mounted) return;
-    if (s.reward.isNotEmpty) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RewardClaimScreen()));
+    if (s.rewardFor(widget.done).isNotEmpty) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RewardClaimScreen(action: widget.done)));
     } else {
       Navigator.of(context).popUntil((r) => r.isFirst);
+      final nextA = s.currentAction;
+      if (nextA != null && !nextA.codesDone) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
+      }
     }
   }
 
@@ -639,9 +830,9 @@ class _CelebrationScreenState extends State<CelebrationScreen> with SingleTicker
           InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, label: 'Completed', title: widget.done.title, subtitle: 'A small step towards your 30-day focus.'),
           const SizedBox(height: 10),
           if (nextA != null)
-            InfoCard(icon: iconFor(nextA.title), tint: NC.warmTint, iconColor: NC.warning, label: 'Next action unlocked', title: nextA.title, subtitle: 'Ready when you are.')
+            InfoCard(icon: iconFor(nextA.title), tint: NC.warmTint, iconColor: NC.warning, label: 'Next Micro-Action unlocked', title: nextA.title, subtitle: 'Ready when you are.')
           else
-            const InfoCard(icon: Icons.event_note, tint: NC.warmTint, iconColor: NC.warning, label: 'Coming up', title: 'Your weekly check-in', subtitle: "We'll choose your next steps together."),
+            const InfoCard(icon: Icons.event_note, tint: NC.warmTint, iconColor: NC.warning, label: 'Coming up', title: 'Your weekly check-in', subtitle: "We'll choose your next Micro-Actions together."),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
@@ -718,47 +909,66 @@ class _Confetti extends CustomPainter {
   bool shouldRepaint(covariant _Confetti old) => old.t != t;
 }
 
-/// Screen 24 — reward ready.
-class RewardClaimScreen extends StatelessWidget {
-  const RewardClaimScreen({super.key});
+/// Screen 24 — reward ready. B4: easy ways off the page.
+class RewardClaimScreen extends StatefulWidget {
+  final MicroAction? action;
+  const RewardClaimScreen({super.key, this.action});
+  @override
+  State<RewardClaimScreen> createState() => _RewardClaimScreenState();
+}
+
+class _RewardClaimScreenState extends State<RewardClaimScreen> {
+  final s = AppState.I;
+
+  void _next(String msg) {
+    toast(context, msg);
+    final nextA = s.currentAction;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    if (nextA != null && !nextA.codesDone) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final s = AppState.I;
+    final reward = s.rewardFor(widget.action);
     return NavooScaffold(
       back: false,
       body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-        ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.asset('assets/images/reward_tea.jpg', height: 240, width: double.infinity, fit: BoxFit.cover)),
-        const SizedBox(height: 22),
-        const Center(child: Text('Action complete.', style: T.h1)),
+        ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.asset('assets/images/reward_tea.jpg', height: 220, width: double.infinity, fit: BoxFit.cover)),
+        const SizedBox(height: 20),
+        const Center(child: Text('Micro-Action complete.', textAlign: TextAlign.center, style: T.h1)),
         const SizedBox(height: 6),
         const Center(child: Text('Your reward is ready.', style: TextStyle(fontSize: 22, color: NC.slate))),
-        const SizedBox(height: 10),
-        Center(child: Text('Go and enjoy it: ${s.reward.toLowerCase()}.', textAlign: TextAlign.center, style: T.sub)),
+        const SizedBox(height: 18),
+        InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your reward', title: reward),
         const SizedBox(height: 20),
-        InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your reward', title: s.reward),
-        const SizedBox(height: 22),
-        PrimaryButton('Claim reward', trailingArrow: true, testKey: const Key('claim_reward'), onPressed: () {
-          toast(context, 'Enjoy it. You followed through.');
-          Navigator.of(context).popUntil((r) => r.isFirst);
-        }),
-        const SizedBox(height: 12),
-        SoftButton('Change my reward', onPressed: () async {
-          final c = TextEditingController(text: s.reward);
-          final r = await showDialog<String>(
-            context: context,
-            builder: (_) => AlertDialog(
-              backgroundColor: NC.bg,
-              title: const Text('Your reward', style: T.h3),
-              content: TextField(controller: c, autofocus: true),
-              actions: [FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save'))],
-            ),
-          );
-          if (r != null && r.trim().isNotEmpty) {
-            s.reward = r.trim();
-            await s.save();
-            if (context.mounted) (context as Element).markNeedsBuild();
-          }
-        }),
+        PrimaryButton('Claim reward', trailingArrow: true, testKey: const Key('claim_reward'), onPressed: () => _next('Enjoy it. You followed through.')),
+        const SizedBox(height: 10),
+        SoftButton('Just telling myself well done is enough this time', icon: Icons.favorite_border, onPressed: () => _next('Well done. That counts.')),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: SoftButton('Change reward', outlined: true, onPressed: () async {
+              final pick = await showModalBottomSheet<String>(
+                context: context,
+                backgroundColor: NC.bg,
+                builder: (_) => SafeArea(
+                  child: ListView(shrinkWrap: true, children: [
+                    const Padding(padding: EdgeInsets.all(20), child: Text('Choose a reward', style: T.h3)),
+                    for (final r in s.rewards) ListTile(leading: const Icon(Icons.card_giftcard, color: NC.success), title: Text(r), onTap: () => Navigator.pop(context, r)),
+                  ]),
+                ),
+              );
+              if (pick != null) {
+                setState(() => widget.action?.reward = pick);
+                await s.save();
+              }
+            }),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: SoftButton('Skip', outlined: true, onPressed: () => _next('Nice work.'))),
+        ]),
       ]),
     );
   }

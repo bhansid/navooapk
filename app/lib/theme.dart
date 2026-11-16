@@ -310,7 +310,7 @@ class NavooThinking extends StatefulWidget {
   final List<String> lines;
   const NavooThinking({super.key, this.lines = const [
     "Looking at what you've told me...",
-    'Matching steps to your real day...',
+    'Matching Micro-Actions to your real day...',
     'Using behavioural science to make this easier...',
     'Keeping it small and doable...',
   ]});

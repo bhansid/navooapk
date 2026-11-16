@@ -110,7 +110,7 @@ async function flagSafety(userId, kind, text) {
         user: String(userId || "unknown"),
         kind: kind === "crisis-keyword" || kind === "crisis" ? "Possible crisis / self-harm" : kind === "eating_disorder" ? "Possible eating disorder" : String(kind),
         time: new Date().toISOString(),
-        message: String(text).slice(0, 500),
+        message: "Details are in the Navoo safety log (not included in email to protect the user's health information).",
       }).toString(),
     });
   } catch (e) {
@@ -132,24 +132,55 @@ const TASKS = {
   vision: (d) => `From the user's answers below, write their Wider Vision in their own words.
 Return JSON {"headline": "max 8 words, e.g. 'A healthier, more confident and energetic you.'", "body": "2-3 sentences in second person using their words", "feelings": ["3 single words"], "identity": "short phrase, e.g. 'Someone who takes care of their health.'"}.
 Answers: ${JSON.stringify(d)}`,
-  focus_options: (d) => `Suggest exactly 3 different 30-Day Focus options that move this user towards their Vision. Each must be one clear, realistic behaviour area that fits their life (food, movement, sleep, routine etc.), written in first person as the user would say it, max 9 words, e.g. "Build healthier dinners into my workweek." Never say "plan".
-Return JSON {"options": [{"title": "...", "why": "one short sentence why this could fit them"}]}.
+  focus_options: (d) => `Suggest exactly 3 different 30-Day Focus options for this user.
+RULES (all must hold):
+1. Every option DIRECTLY serves the main outcome in the user's Vision and wish. For a weight-loss Vision, every option must be something that clearly drives weight loss (eating, snacking, portions, movement). Never offer a loosely related area (e.g. sleep, morning stretches, hydration) unless the user named it.
+2. All 3 options are at the SAME broad level: a behaviour area, not a tactic. Good: "Eat healthier weekday meals", "Improve my snacking habits", "Move more during the week". Bad (mixed levels): "Evening weekday meals" next to "Protein snacks for busy afternoons". Specific tactics only come later, once the user names that moment as the barrier.
+3. First person, as the user would say it, max 8 words. Never say "plan".
+4. If "already_shown" options are given, suggest 3 NEW ones that follow the same rules; never repeat or reword them.
+Return JSON {"options": [{"title": "...", "why": "one short sentence linking it to their Vision"}]}.
 User data: ${JSON.stringify(d)}`,
+
   categorise_obstacles: (d) => `Sort what the user said gets in their way into logistical and psychological friction, and write a short summary line.
 Return JSON {"logistical": ["short items"], "psychological": ["short items"], "summary": "max 10 words, e.g. 'Evening exhaustion and lack of preparation.'"}.
 User said: ${JSON.stringify(d)}`,
-  actions: (d) => `Suggest up to 3 small, concrete Micro-Actions (each doable in under ~20 minutes, ideally 5-10) that build in order towards the user's 30-Day Focus and get around their obstacles. Step 1 must be the easiest. Titles max 6 words.
+  actions: (d) => `Suggest Micro-Actions for the user's 30-Day Focus (default 3, or "how_many" if given).
+RULES (all must hold):
+1. They BUILD ON EACH OTHER: each one uses the result of the one before. Good: "Find 2 rapid healthy meals" -> "Buy the ingredients for your 2 rapid meals" -> "Cook one of your rapid meals on Tuesday". Bad: "List 2 rapid meal options" -> "Grab staples in next shop" -> "Make your lighter dinner" (not connected).
+2. The first is the easiest. Each is concrete and doable in 5-20 minutes. Titles max 7 words, in plain English.
+3. Every one clearly serves the 30-Day Focus and the Vision, and works around the stated obstacles.
+4. NEVER repeat or reword anything in "all_previous_micro_actions" or "rejected_suggestions". If "fixed_first_micro_actions" are given, continue directly from the last one.
+5. Never use the word "plan".
 Return JSON {"actions": [{"title": "...", "description": "one short line", "why": "one sentence on why this helps this user", "minutes": number}]}.
 User data: ${JSON.stringify(d)}`,
+
+  acknowledge: (d) => `During set-up the user just answered a question. Write ONE short sentence (max 18 words) that reflects back what they said, using their words, so they feel heard. Warm and natural, no hype ("amazing", "great insight"), no question, no advice, don't move the conversation on. If the answer touches something sensitive (e.g. wanting to be thinner), acknowledge it kindly and neutrally.
+Return JSON {"line": "..."}.
+Question: ${d.question}
+Answer: ${d.answer}`,
+  brain_cheat_codes: (d) => `Create ideas for the user's Brain Cheat Codes for ONE Micro-Action. The user will draft their own; these are examples they can tap and edit.
+FORMAT for every If/Then: "if" is the moment written as "I have finished eating my lunch" (starts with "I", no "if"/"when" word); "then" starts with "I will" (no "then" word). Max 14 words each.
+1. moment_ideas: 3 that link the Micro-Action to a moment that already happens in their day, fitting their routine and timing.
+2. slip_up_ideas: 3 that plan for a motivation drop or the user's own barrier (use their obstacles), e.g. {"if": "I am too tired to cook when I get home", "then": "I will have the easy back-up from the freezer, not a takeaway"} or {"if": "I am too tired when lunch hits", "then": "I will remind myself of my Vision"}.
+3. nudge_ideas: 3 short Physical Nudges (Environment Design): a change to their surroundings that makes the action easy and visible, e.g. "Leave the ingredients on the worktop before work". Max 12 words.
+4. reward_suggestion: the item from rewards_menu that best suits this Micro-Action's time of day (or "" if none).
+Never use the word "plan".
+Return JSON {"moment_ideas": [{"if": "...", "then": "..."}], "slip_up_ideas": [{"if": "...", "then": "..."}], "nudge_ideas": ["..."], "reward_suggestion": "..."}.
+Data: ${JSON.stringify(d)}`,
+  insights: (d) => `The user just completed a Micro-Action. From this and their profile, write 0-2 NEW short insights about what helps them, in the user's own first-person voice (e.g. "Mornings are when I follow through best", "Leaving ingredients out made cooking easier"). Only include something genuinely supported by the data; skip anything already in learned_about_user. Never "User is...".
+Return JSON {"insights": ["..."]}.
+Data: ${JSON.stringify(d)}`,
   improve_ifthen: (d) => `The user drafted an If/Then plan themselves. Keep their words and idea; only tighten it so the IF is a clear cue and the THEN a small, specific action. If it's already good, keep it. Also suggest one environment/setup idea if they gave none.
 Return JSON {"if": "...", "then": "...", "backup_if": "...", "backup_then": "...", "setup": "...", "comment": "one short, calm sentence to the user (no hype)"}.
 Draft: ${JSON.stringify(d)}`,
   ifthen_suggestions: (d) => `Suggest 3 short, personal If/Then options for the user's action, built from what you know about their routine, energy and obstacles. IF = a moment that already happens in their day (no "if" word). THEN = the small action, starting "I'll" (no "then" word). Max 12 words each. Realistic and kind; avoid times they find hard.
 Return JSON {"suggestions": [{"if": "...", "then": "..."}]}.
 Data: ${JSON.stringify(d)}`,
-  weekly_review: (d) => `Run the end-of-week calibration. Use the week's data (completed and missed actions, how they felt, what the user said got in the way). Never frame slip-ups as failure and don't over-celebrate them as success; treat them as useful information. Keep the same goal; change the approach.
-Never use the word "plan". Return JSON {"went_well": [{"title": "short", "detail": "one line"}], "noticed": ["1-2 factual observations from the data"], "learned": ["1-3 short learnings in the user's own first-person voice, e.g. 'Cooking from scratch is too much on stressful evenings'"], "factors": ["choose from: Energy, Time, Environment, Emotional trigger, Preparation, Motivation"], "headline_learning": "one sentence", "next_actions": [{"title": "max 6 words", "description": "one line", "why": "one sentence", "minutes": number}]} with exactly 3 next_actions.
+  weekly_review: (d) => `Run the end-of-week check-in AFTER the user has answered what went well and what got in the way. Never frame slip-ups as failure and don't over-celebrate them as success; treat them as useful information. Keep the same goal; change the approach. Never use the word "plan".
+NEXT MICRO-ACTIONS RULES: exactly 3; they build on what the user has already completed and on each other; each links to the Vision and 30-Day Focus; they address what got in the way; NEVER repeat or reword anything in "all_previous_micro_actions" or "rejected_suggestions" unless the user explicitly asked to repeat it.
+Return JSON {"went_well": [{"title": "short", "detail": "one line"}], "noticed": ["1-2 factual observations from the data"], "learned": ["1-3 short learnings in the user's own first-person voice, e.g. 'Cooking from scratch is too much on stressful evenings'"], "factors": ["from: Energy, Time, Environment, Emotional trigger, Preparation, Motivation"], "headline_learning": "one sentence", "next_actions": [{"title": "max 7 words", "description": "one line", "why": "one sentence", "minutes": number}]}.
 Week data: ${JSON.stringify(d)}`,
+
   daily_tip: (d) => `Write today's short coach message for the Home screen: either one reflective question or one practical tip tied to their current action and what you know about them. Max 25 words. Calm, specific, no hype, no "you've got this".
 Return JSON {"type": "question" | "tip", "text": "..."}.
 User data: ${JSON.stringify(d)}`,

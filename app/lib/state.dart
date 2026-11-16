@@ -31,6 +31,8 @@ class MicroAction {
   int week;
   int triggerHour;
   int triggerMinute;
+  String reward;
+  bool codesDone;
   MicroAction({
     required this.id,
     required this.title,
@@ -49,6 +51,8 @@ class MicroAction {
     this.week = 1,
     this.triggerHour = -1,
     this.triggerMinute = 0,
+    this.reward = '',
+    this.codesDone = false,
   });
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -68,6 +72,8 @@ class MicroAction {
         'week': week,
         'triggerHour': triggerHour,
         'triggerMinute': triggerMinute,
+        'reward': reward,
+        'codesDone': codesDone,
       };
   static MicroAction fromJson(Map<String, dynamic> j) => MicroAction(
         id: j['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
@@ -87,6 +93,8 @@ class MicroAction {
         week: (j['week'] is num) ? (j['week'] as num).toInt() : 1,
         triggerHour: (j['triggerHour'] is num) ? (j['triggerHour'] as num).toInt() : -1,
         triggerMinute: (j['triggerMinute'] is num) ? (j['triggerMinute'] as num).toInt() : 0,
+        reward: j['reward'] ?? '',
+        codesDone: j['codesDone'] ?? false,
       );
 }
 
@@ -118,6 +126,8 @@ class AppState extends ChangeNotifier {
   String obstaclesSummary = '';
   String whyMatters = '';
   String reward = '';
+  List<String> rewards = [];
+  Map<String, dynamic> reviewDraft = {};
   int reviewWeekday = DateTime.sunday;
   int reviewHour = 19;
   int reviewMinute = 0;
@@ -173,6 +183,8 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  String rewardFor(MicroAction? a) => (a != null && a.reward.isNotEmpty) ? a.reward : reward;
+
   List<MicroAction> get queue => actions.where((a) => a.status != 'done').toList();
   List<MicroAction> get done => actions.where((a) => a.status == 'done').toList();
 
@@ -224,6 +236,7 @@ class AppState extends ChangeNotifier {
         'focus_day': focusStart == null ? null : focusDay,
         'obstacles': {'said': obstaclesText, 'logistical': obstaclesLogistical, 'psychological': obstaclesPsychological},
         'reward': reward,
+        'rewards_menu': rewards,
         'current_action': currentAction == null
             ? null
             : {
@@ -236,7 +249,8 @@ class AppState extends ChangeNotifier {
                 'timing': currentAction!.timing,
               },
         'coming_next': actions.where((a) => a.status == 'locked').map((a) => a.title).toList(),
-        'completed': done.map((a) => {'title': a.title, 'felt': a.feeling, 'week': a.week}).toList(),
+        'completed': done.map((a) => {'title': a.title, 'felt': a.feeling, 'week': a.week, 'when': a.doneAt?.toIso8601String()}).toList(),
+        'all_previous_micro_actions': actions.map((a) => a.title).toList(),
         'learned_about_user': personalisedCoaching ? learnings : [],
         'basics': {
           'age': age,
@@ -284,6 +298,8 @@ class AppState extends ChangeNotifier {
         'obstaclesSummary': obstaclesSummary,
         'whyMatters': whyMatters,
         'reward': reward,
+        'rewards': rewards,
+        'reviewDraft': reviewDraft,
         'reviewWeekday': reviewWeekday,
         'reviewHour': reviewHour,
         'reviewMinute': reviewMinute,
@@ -349,6 +365,9 @@ class AppState extends ChangeNotifier {
     obstaclesSummary = j['obstaclesSummary'] ?? '';
     whyMatters = j['whyMatters'] ?? '';
     reward = j['reward'] ?? '';
+    rewards = _ls(j['rewards']);
+    if (rewards.isEmpty && reward.isNotEmpty) rewards = [reward];
+    reviewDraft = (j['reviewDraft'] is Map) ? Map<String, dynamic>.from(j['reviewDraft']) : {};
     reviewWeekday = j['reviewWeekday'] ?? DateTime.sunday;
     reviewHour = j['reviewHour'] ?? 19;
     reviewMinute = j['reviewMinute'] ?? 0;

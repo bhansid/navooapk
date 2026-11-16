@@ -4,6 +4,7 @@ import '../device.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'actions.dart';
+import 'coach.dart';
 import 'shell.dart';
 
 Map<String, dynamic> weekData() {
@@ -38,13 +39,34 @@ class WeeklyReviewIntro extends StatelessWidget {
           const SizedBox(height: 10),
           const InfoCard(icon: Icons.sync, tint: NC.lilacTint, iconColor: Color(0xFF7A62B8), label: 'What to try next', title: 'Choose one small adjustment.'),
           const SizedBox(height: 22),
-          PrimaryButton('See my week', trailingArrow: true, testKey: const Key('review_start'),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WhatWorkedScreen()))),
+          PrimaryButton(AppState.I.reviewDraft.isEmpty ? 'Start my check-in' : 'Continue my check-in', trailingArrow: true, testKey: const Key('review_start'),
+              onPressed: () => resumeReview(context)),
         ]),
       );
 }
 
-/// Screen 26b — what worked.
+/// Opens the coach on top of the check-in, so Back returns to the same place (B2).
+void openCoachOver(BuildContext context, String preset) =>
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CoachScreen(standalone: true, preset: preset)));
+
+Future<void> _saveDraft(Map<String, dynamic> d) async {
+  AppState.I.reviewDraft = {...AppState.I.reviewDraft, ...d};
+  await AppState.I.save();
+}
+
+/// Resume the check-in where the user left it.
+void resumeReview(BuildContext context) {
+  final d = AppState.I.reviewDraft;
+  if (d['stage'] == 'next') {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => NextWeekScreen(said: '${d['inway'] ?? ''}', factors: List<String>.from(d['factors'] ?? []))));
+  } else if (d['stage'] == 'inway') {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const InTheWayScreen()));
+  } else {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const WhatWorkedScreen()));
+  }
+}
+
+/// Screen 26b — what worked. Asks first; no AI conclusions yet (C13).
 class WhatWorkedScreen extends StatefulWidget {
   const WhatWorkedScreen({super.key});
   @override
@@ -52,138 +74,126 @@ class WhatWorkedScreen extends StatefulWidget {
 }
 
 class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
-  Map<String, dynamic>? r;
-  bool loading = true;
-  @override
-  void initState() {
-    super.initState();
-    Coach.task('weekly_review', weekData()).then((v) {
-      if (mounted) setState(() {
-        r = v;
-        loading = false;
-      });
-    });
-  }
+  final s = AppState.I;
+  late final c = TextEditingController(text: '${s.reviewDraft['worked'] ?? ''}');
 
   @override
   Widget build(BuildContext context) {
-    final s = AppState.I;
-    final went = (r?['went_well'] is List) ? (r!['went_well'] as List).whereType<Map>().toList() : <Map>[];
-    final noticed = (r?['noticed'] is List) ? (r!['noticed'] as List).map((e) => '$e').toList() : <String>[];
-    return NavooScaffold(
-      body: loading
-          ? const NavooThinking(lines: ['Looking at your week...', 'Noticing what helped...', 'Spotting patterns...'])
-          : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-              const Text('WEEKLY REVIEW', style: T.label),
-              const SizedBox(height: 6),
-              const Text('What worked this week?', style: T.h1),
-              const SizedBox(height: 8),
-              const Text("Let's start with what went well. It tells us what to keep.", style: T.sub),
-              const SizedBox(height: 18),
-              if (went.isEmpty && s.done.isEmpty)
-                const InfoCard(icon: Icons.spa_outlined, tint: NC.sageTint, iconColor: NC.success, title: 'A quiet week', subtitle: "That's okay. We'll work from where you are now.")
-              else ...[
-                const Text('You did well with:', style: T.h3),
-                const SizedBox(height: 10),
-                if (went.isEmpty)
-                  ...s.done.reversed.take(3).map((a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, title: a.title)))
-                else
-                  ...went.map((w) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: InfoCard(icon: Icons.wb_sunny_outlined, tint: NC.sageTint, iconColor: NC.success, title: '${w['title']}', subtitle: '${w['detail'] ?? ''}'))),
-              ],
-              if (noticed.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const Text('Navoo noticed:', style: T.h3),
-                const SizedBox(height: 10),
-                ...noticed.map((n) => Padding(padding: const EdgeInsets.only(bottom: 10), child: InfoCard(icon: Icons.insights, title: n))),
-              ],
-              const SizedBox(height: 14),
-              PrimaryButton('Continue', trailingArrow: true, testKey: const Key('worked_continue'),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InTheWayScreen(review: r)))),
-            ]),
-    );
-  }
-}
-
-/// Screen 26c — what got in the way.
-class InTheWayScreen extends StatefulWidget {
-  final Map<String, dynamic>? review;
-  const InTheWayScreen({super.key, this.review});
-  @override
-  State<InTheWayScreen> createState() => _InTheWayScreenState();
-}
-
-class _InTheWayScreenState extends State<InTheWayScreen> {
-  final c = TextEditingController();
-  final factors = <String>{};
-  static const all = ['Energy', 'Time', 'Environment', 'Emotional trigger', 'Preparation', 'Motivation'];
-  static const icons = [Icons.bolt, Icons.schedule, Icons.home_work_outlined, Icons.favorite_border, Icons.description_outlined, Icons.track_changes];
-
-  @override
-  void initState() {
-    super.initState();
-    final f = widget.review?['factors'];
-    if (f is List) factors.addAll(f.map((e) => '$e').where(all.contains));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final learned = (widget.review?['learned'] is List) ? (widget.review!['learned'] as List).map((e) => '$e').toList() : <String>[];
+    final since = s.lastReview ?? s.focusStart ?? DateTime.now().subtract(const Duration(days: 7));
+    final done = s.done.where((a) => a.doneAt != null && a.doneAt!.isAfter(since)).toList();
     return NavooScaffold(
       body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-        const Text('WEEKLY REVIEW', style: T.label),
+        const Text('WEEKLY CHECK-IN · 1 OF 2', style: T.label),
         const SizedBox(height: 6),
-        const Text('What got in the way?', style: T.h1),
+        const Text('What worked this week?', style: T.h1),
         const SizedBox(height: 8),
-        const Text("Let's look at the harder moments. They show us what to change.", style: T.sub),
+        const Text("Let's start with what went well. It tells us what to keep.", style: T.sub),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: NC.blueTint.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(18)),
-          child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CoachAvatar(size: 36),
-            SizedBox(width: 12),
-            Expanded(child: Text('Was there a moment this week when things didn\'t go the way you hoped? What happened?', style: T.body)),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        TextField(key: const Key('review_inway'), controller: c, minLines: 2, maxLines: 5, decoration: const InputDecoration(hintText: 'e.g. I got home exhausted on Wednesday and ordered takeaway')),
-        const SizedBox(height: 16),
-        const Text('LIKELY FACTORS', style: T.label),
-        const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (var i = 0; i < all.length; i++)
-            FilterChip(
-              avatar: Icon(icons[i], size: 18, color: factors.contains(all[i]) ? NC.error : NC.slate),
-              label: Text(all[i]),
-              selected: factors.contains(all[i]),
-              showCheckmark: false,
-              selectedColor: NC.roseTint,
-              backgroundColor: Colors.white,
-              side: const BorderSide(color: NC.border),
-              shape: const StadiumBorder(),
-              onSelected: (v) => setState(() => v ? factors.add(all[i]) : factors.remove(all[i])),
-            ),
-        ]),
-        if (learned.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          const Text('What we learned', style: T.h3),
-          const SizedBox(height: 10),
-          ...learned.map((l) => Padding(padding: const EdgeInsets.only(bottom: 10), child: InfoCard(icon: Icons.lightbulb_outline, tint: NC.warmTint, iconColor: NC.warning, title: l))),
+        if (done.isEmpty)
+          const InfoCard(icon: Icons.spa_outlined, tint: NC.sageTint, iconColor: NC.success, title: 'A quiet week', subtitle: "That's okay. We'll work from where you are now.")
+        else ...[
+          const Text('YOU COMPLETED', style: T.label),
+          const SizedBox(height: 8),
+          ...done.map((a) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InfoCard(icon: Icons.check, tint: NC.sageTint, iconColor: NC.success, title: a.title, subtitle: a.feeling == null ? null : 'It felt: ${a.feeling!.toLowerCase()}'))),
         ],
-        const SizedBox(height: 16),
-        PrimaryButton('Continue', trailingArrow: true, testKey: const Key('inway_continue'), onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => NextWeekScreen(said: c.text.trim(), factors: factors.toList())));
+        const SizedBox(height: 12),
+        const Text('What helped, or what went well?', style: T.h3),
+        const SizedBox(height: 8),
+        TextField(key: const Key('review_worked'), controller: c, minLines: 2, maxLines: 6, decoration: const InputDecoration(hintText: 'e.g. Having the recipes saved made Tuesday easy')),
+        const SizedBox(height: 18),
+        PrimaryButton('Continue', trailingArrow: true, testKey: const Key('worked_continue'), onPressed: () async {
+          await _saveDraft({'stage': 'inway', 'worked': c.text.trim()});
+          if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const InTheWayScreen()));
+        }),
+        const SizedBox(height: 10),
+        SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
+          await _saveDraft({'worked': c.text.trim()});
+          if (context.mounted) openCoachOver(context, '');
         }),
       ]),
     );
   }
 }
 
-/// Screen 26d — change the approach, not the goal.
+/// Screen 26c — what got in the way. Still asking; learnings come after.
+class InTheWayScreen extends StatefulWidget {
+  const InTheWayScreen({super.key});
+  @override
+  State<InTheWayScreen> createState() => _InTheWayScreenState();
+}
+
+class _InTheWayScreenState extends State<InTheWayScreen> {
+  final s = AppState.I;
+  late final c = TextEditingController(text: '${s.reviewDraft['inway'] ?? ''}');
+  late final factors = <String>{...List<String>.from(s.reviewDraft['factors'] ?? [])};
+  static const all = ['Energy', 'Time', 'Environment', 'Emotional trigger', 'Preparation', 'Motivation'];
+  static const icons = [Icons.bolt, Icons.schedule, Icons.home_work_outlined, Icons.favorite_border, Icons.description_outlined, Icons.track_changes];
+
+  Future<void> _keep() => _saveDraft({'stage': 'inway', 'inway': c.text.trim(), 'factors': factors.toList()});
+
+  @override
+  Widget build(BuildContext context) => NavooScaffold(
+        body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
+          const Text('WEEKLY CHECK-IN · 2 OF 2', style: T.label),
+          const SizedBox(height: 6),
+          const Text('What got in the way?', style: T.h1),
+          const SizedBox(height: 8),
+          const Text("The harder moments show us what to change. Slip-ups are useful information, not failures.", style: T.sub),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: NC.blueTint.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(18)),
+            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              CoachAvatar(size: 36),
+              SizedBox(width: 12),
+              Expanded(child: Text("Was there a moment this week when things didn't go the way you hoped? What happened?", style: T.body)),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+              key: const Key('review_inway'),
+              controller: c,
+              minLines: 2,
+              maxLines: 6,
+              onChanged: (_) => _keep(),
+              decoration: const InputDecoration(hintText: 'e.g. I got home exhausted on Wednesday and ordered takeaway')),
+          const SizedBox(height: 16),
+          const Text('WHAT PLAYED A PART? (TAP ANY)', style: T.label),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (var i = 0; i < all.length; i++)
+              FilterChip(
+                avatar: Icon(icons[i], size: 18, color: factors.contains(all[i]) ? NC.error : NC.slate),
+                label: Text(all[i]),
+                selected: factors.contains(all[i]),
+                showCheckmark: false,
+                selectedColor: NC.roseTint,
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: NC.border),
+                shape: const StadiumBorder(),
+                onSelected: (v) {
+                  setState(() => v ? factors.add(all[i]) : factors.remove(all[i]));
+                  _keep();
+                },
+              ),
+          ]),
+          const SizedBox(height: 18),
+          PrimaryButton('See what we learned', trailingArrow: true, testKey: const Key('inway_continue'), onPressed: () async {
+            await _saveDraft({'stage': 'next', 'inway': c.text.trim(), 'factors': factors.toList()});
+            if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => NextWeekScreen(said: c.text.trim(), factors: factors.toList())));
+          }),
+          const SizedBox(height: 10),
+          SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
+            await _keep();
+            if (context.mounted) openCoachOver(context, '');
+          }),
+        ]),
+      );
+}
+
+/// Screen 26d — learnings (after all questions) + change the approach, not the goal.
 class NextWeekScreen extends StatefulWidget {
   final String said;
   final List<String> factors;
@@ -196,6 +206,7 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
   final s = AppState.I;
   bool loading = true;
   String headline = '';
+  List<String> learned = [], noticed = [];
   List<MicroAction> next = [];
 
   @override
@@ -204,18 +215,28 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    final r = await Coach.task('weekly_review', {...weekData(), 'user_said_got_in_the_way': widget.said, 'factors_chosen': widget.factors});
+  Future<void> _load({bool different = false}) async {
+    setState(() => loading = true);
+    final r = await Coach.task('weekly_review', {
+      ...weekData(),
+      'user_said_went_well': '${s.reviewDraft['worked'] ?? ''}',
+      'user_said_got_in_the_way': widget.said,
+      'factors_chosen': widget.factors,
+      'all_previous_micro_actions': s.actions.map((a) => a.title).toList(),
+      if (different) 'rejected_suggestions': next.map((a) => a.title).toList(),
+    });
     headline = '${r?['headline_learning'] ?? ''}';
-    final learned = (r?['learned'] is List) ? (r!['learned'] as List).map((e) => '$e').toList() : <String>[];
-    s.addLearnings(learned);
-    next = parseActions(r, 'next_actions', s.week + 1);
-    if (next.isEmpty) next = fallbackActions(s.focus).map((a) => a..week = s.week + 1).toList();
-    if (headline.isEmpty) headline = widget.said.isEmpty ? 'Keep what worked, and make the next steps a little easier.' : 'We\'ll design around what got in the way.';
+    learned = (r?['learned'] is List) ? (r!['learned'] as List).map((e) => '$e').toList() : <String>[];
+    noticed = (r?['noticed'] is List) ? (r!['noticed'] as List).map((e) => '$e').toList() : <String>[];
+    final previous = s.actions.map((a) => a.title.toLowerCase().trim()).toSet();
+    next = parseActions(r, 'next_actions', s.week + 1).where((a) => !previous.contains(a.title.toLowerCase().trim())).toList();
+    if (next.isEmpty) next = fallbackActions(s.focus).where((a) => !previous.contains(a.title.toLowerCase().trim())).map((a) => a..week = s.week + 1).toList();
+    if (headline.isEmpty) headline = widget.said.isEmpty ? 'Keep what worked, and make the next Micro-Actions a little easier.' : "We'll design around what got in the way.";
     if (mounted) setState(() => loading = false);
   }
 
   Future<void> accept() async {
+    s.addLearnings(learned);
     s.actions.removeWhere((a) => a.status != 'done');
     s.week += 1;
     for (final a in next) {
@@ -225,43 +246,51 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
     s.actions.addAll(next);
     s.activateNext();
     s.lastReview = DateTime.now();
+    s.reviewDraft = {};
     await s.save();
     Device.reschedule();
     if (!mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
-    toast(context, 'Your next steps are ready.');
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
   }
 
   Future<void> edit(int i) async {
-    final c = TextEditingController(text: next[i].title);
-    final r = await showDialog<String>(
+    final t = TextEditingController(text: next[i].title), d = TextEditingController(text: next[i].description);
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: NC.bg,
-        title: const Text('Change this step', style: T.h3),
-        content: TextField(controller: c, autofocus: true),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context, c.text), child: const Text('Save'))],
+        title: const Text('Change this Micro-Action', style: T.h3),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
+          const SizedBox(height: 10),
+          TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details (optional)')),
+        ]),
+        actions: [FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save'))],
       ),
     );
-    if (r != null && r.trim().isNotEmpty) setState(() => next[i].title = r.trim());
+    if (ok == true && t.text.trim().isNotEmpty) {
+      setState(() {
+        next[i].title = t.text.trim();
+        next[i].description = d.text.trim();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) => NavooScaffold(
         body: loading
-            ? const NavooThinking(lines: ['Learning from this week...', 'Adjusting the approach, not the goal...', 'Choosing your next small steps...'])
+            ? const NavooThinking(lines: ['Learning from this week...', 'Adjusting the approach, not the goal...', 'Choosing your next Micro-Actions...'])
             : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
-                const Text('NEXT WEEK', style: T.label),
+                const Text('WHAT WE LEARNED', style: T.label),
                 const SizedBox(height: 6),
                 const Text("Let's change the approach, not the goal.", style: T.h1),
-                const SizedBox(height: 8),
-                const Text('Same goal. A different approach.', style: T.sub),
                 const SizedBox(height: 14),
-                ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.asset('assets/images/meal_prep.jpg', height: 150, width: double.infinity, fit: BoxFit.cover)),
-                const SizedBox(height: 14),
-                InfoCard(icon: Icons.lightbulb_outline, tint: NC.roseTint, iconColor: NC.error, label: 'What we learned', title: headline),
+                InfoCard(icon: Icons.lightbulb_outline, tint: NC.roseTint, iconColor: NC.error, label: 'The big learning', title: headline),
+                for (final l in learned) ...[const SizedBox(height: 8), InfoCard(icon: Icons.lightbulb_outline, tint: NC.warmTint, iconColor: NC.warning, title: l)],
+                for (final n in noticed) ...[const SizedBox(height: 8), InfoCard(icon: Icons.insights, title: n)],
                 const SizedBox(height: 18),
-                const Text('YOUR NEXT ACTIONS', style: T.label),
+                const Text('YOUR NEXT MICRO-ACTIONS', style: T.label),
                 const SizedBox(height: 10),
                 for (var i = 0; i < next.length; i++)
                   Padding(
@@ -277,15 +306,35 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
                       onTap: () => edit(i),
                     ),
                   ),
-                const SizedBox(height: 10),
+                const Text('Tap a Micro-Action to change it.', style: T.small),
+                const SizedBox(height: 12),
                 PrimaryButton('Looks good', trailingArrow: true, onPressed: accept, testKey: const Key('nextweek_accept')),
                 const SizedBox(height: 10),
-                SoftButton('Change these', onPressed: () => edit(0)),
+                SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: () => _load(different: true)),
                 const SizedBox(height: 10),
-                SoftButton('Ask Navoo', icon: Icons.chat_bubble_outline, outlined: true,
-                    onPressed: () => openCoach(context, preset: 'For next week, I\'d like to change my steps. ')),
+                SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+                    onPressed: () => openCoachOver(context, "For next week, I'd like to change my Micro-Actions. ")),
               ]),
       );
+}
+
+/// P2: add more Micro-Actions once this week's are done.
+Future<bool> addMoreMicroActions(BuildContext context) async {
+  final s = AppState.I;
+  final r = await Coach.task('actions', {
+    'focus': s.focus,
+    'vision': s.visionHeadline,
+    'obstacles': s.obstaclesText,
+    'all_previous_micro_actions': s.actions.map((a) => a.title).toList(),
+    'instruction': "The user finished this week's Micro-Actions and wants more this week. Suggest up to 3 that build on what they've done (for example more of the same healthy habit), no repeats.",
+  });
+  final previous = s.actions.map((a) => a.title.toLowerCase().trim()).toSet();
+  final list = parseActions(r, 'actions', s.week).where((a) => !previous.contains(a.title.toLowerCase().trim())).toList();
+  if (list.isEmpty) return false;
+  s.actions.addAll(list);
+  s.activateNext();
+  await s.save();
+  return true;
 }
 
 /// Screen 27 — 30 days complete.

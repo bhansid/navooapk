@@ -133,9 +133,11 @@ void main() {
     await sendChat("Someone who takes their health seriously and has energy for their family.");
     await wait(1500);
     await sendChat('My kids. I want to keep up with them.');
-    await waitFor(find.text('Tea or coffee'));
+    await waitFor(find.text('A cup of tea or coffee'));
+    await tap(find.text('A cup of tea or coffee'));
+    await tap(find.text('My favourite song, turned up'));
     await shot('12_reward_chat');
-    await tap(find.text('Tea or coffee'));
+    await tap(find.byKey(const Key('chat_send')));
     await waitFor(find.byKey(const Key('reward_save')));
     await shot('13_reward_card');
     await tap(find.byKey(const Key('reward_save')));
@@ -148,15 +150,17 @@ void main() {
     await waitFor(find.byKey(const Key('steps_continue')), secs: 90);
     await shot('16_first_steps');
     await tap(find.byKey(const Key('steps_continue')));
-    await wait(6000);
-    if (find.byKey(const Key('idea_0')).evaluate().isNotEmpty) {
-      await tap(find.byKey(const Key('idea_0')));
-    } else {
-      await type(find.byKey(const Key('if_cue')), 'I get home from work');
-    }
+    await waitFor(find.byKey(const Key('if_cue')));
+    await wait(8000);
+    await shot('17_brain_cheat_codes');
+    await type(find.byKey(const Key('if_cue')), 'I finish eating my lunch');
+    await type(find.byKey(const Key('then_do')), 'walk for 10 minutes');
+    await type(find.byKey(const Key('slip_if')), 'I am too tired when I get home');
+    await type(find.byKey(const Key('slip_then')), 'remind myself of my Vision');
+    await type(find.byKey(const Key('nudge')), 'Trainers by the front door');
     FocusManager.instance.primaryFocus?.unfocus();
-    FocusManager.instance.primaryFocus?.unfocus();
-    await shot('17_if_then');
+    await wait(600);
+    await shot('17b_codes_filled');
     await tap(find.byKey(const Key('ifthen_lock')));
     await waitFor(find.byKey(const Key('ready_home')));
     await shot('18_ready');
@@ -177,7 +181,12 @@ void main() {
     await waitFor(find.byKey(const Key('claim_reward')));
     await shot('22_reward_ready');
     await tap(find.byKey(const Key('claim_reward')));
-    await wait(1500);
+    await wait(2500);
+    if (find.text('Skip for now').evaluate().isNotEmpty) {
+      await shot('22b_next_codes');
+      await tap(find.text('Skip for now'));
+      await wait(1500);
+    }
 
     await tap(find.byKey(const Key('tab_coach')));
     await wait(800);
@@ -217,7 +226,9 @@ void main() {
     await waitFor(find.byKey(const Key('review_start')));
     await shot('31_review_intro');
     await tap(find.byKey(const Key('review_start')));
-    await waitFor(find.byKey(const Key('worked_continue')), secs: 90);
+    await waitFor(find.byKey(const Key('review_worked')), secs: 90);
+    await type(find.byKey(const Key('review_worked')), 'Having my trainers by the door made the lunch walks easy.');
+    FocusManager.instance.primaryFocus?.unfocus();
     await shot('32_what_worked');
     await tap(find.byKey(const Key('worked_continue')));
     await type(find.byKey(const Key('review_inway')), 'On Wednesday I got home exhausted and ordered takeaway.');
@@ -227,7 +238,12 @@ void main() {
     await waitFor(find.byKey(const Key('nextweek_accept')), secs: 90);
     await shot('34_next_week');
     await tap(find.byKey(const Key('nextweek_accept')));
-    await wait(1500);
+    await wait(2500);
+    if (find.text('Skip for now').evaluate().isNotEmpty) {
+      await shot('34b_codes_after_review');
+      await tap(find.text('Skip for now'));
+      await wait(1500);
+    }
     await shot('35_home_after_review');
   }, timeout: const Timeout(Duration(minutes: 25)));
 }

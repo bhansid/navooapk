@@ -79,7 +79,7 @@ void showScienceSheet(BuildContext context) {
         SizedBox(height: 8),
         Text('• Deciding "if this happens, then I will do that" in advance makes follow-through more likely.', style: T.body),
         SizedBox(height: 8),
-        Text('• A small reward straight after an action helps it stick.', style: T.body),
+        Text('• A small reward straight after a Micro-Action helps it stick.', style: T.body),
         SizedBox(height: 8),
         Text('• When something doesn\'t work, we adapt the approach, not the goal.', style: T.body),
       ]),
@@ -140,6 +140,47 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
 
   Future<void> _pause() => Future.delayed(const Duration(milliseconds: 450));
 
+  String get _lastQuestion {
+    for (final it in items.reversed) {
+      if (it.kind == _K.coach) return it.text;
+    }
+    return '';
+  }
+
+  /// C1: always reflect what the user said before moving on.
+  Future<void> _ack(String answerText, {String? question}) async {
+    final q = question ?? _lastQuestion;
+    setState(() {
+      busy = true;
+      items.add(_Item(_K.loading));
+    });
+    _scroll();
+    final r = await Coach.task('acknowledge', {'question': q, 'answer': answerText, 'step': step});
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      items.removeWhere((i) => i.kind == _K.loading);
+      final line = '${r?['line'] ?? ''}'.trim();
+      _coach(line.isNotEmpty ? line : 'Thanks, that helps.');
+    });
+    await Future.delayed(const Duration(milliseconds: 250));
+  }
+
+  static const rewardLibrary = [
+    'A cup of tea or coffee',
+    '10 minutes of my favourite show',
+    'My favourite song, turned up',
+    'A few minutes outside in fresh air',
+    'Telling myself "you\'ve got this"',
+    'A pat on the back',
+    'Messaging a friend about it',
+    '5 minutes reading something I enjoy',
+    'A long shower or bath',
+    'A few minutes of a podcast',
+  ];
+  static const _vague = ['something', 'enjoyable', 'treat', 'nice', 'ritual', 'reward', 'relax', 'fun', 'anything'];
+  bool _askedRewardDetail = false;
+
   Future<void> answer(String text) async {
     if (busy) return;
     setState(() {
@@ -151,9 +192,9 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
     switch (step) {
       case 'wish':
         s.wish = text;
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach("Got it. That can mean quite a few things, so let's work out what matters most to you.\n\nWhat's the main reason you want to make this change?");
+          _coach("What's the main reason you want to make this change?");
           choices = const [
             QuickChoice('I want more energy', icon: Icons.bolt, color: NC.blue),
             QuickChoice('I want to feel more confident', icon: Icons.sentiment_satisfied_alt, color: NC.success),
@@ -163,9 +204,9 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         });
       case 'reason':
         s.reason = text;
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach("First, we'll picture the bigger change: your vision. Then we'll agree a 30-day focus, followed by small actions.");
+          _coach("Next, we'll picture the bigger change: your Vision. Then we'll agree a 30-Day Focus, followed by small Micro-Actions.");
           _coach("How do you want to feel when you're living the life you're working towards? A few words is plenty.");
           choices = const [QuickChoice('Lighter'), QuickChoice('Confident'), QuickChoice('Energetic'), QuickChoice('Calm'), QuickChoice('Proud'), QuickChoice('Strong')];
           gridChoices = true;
@@ -173,35 +214,36 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         });
       case 'feel':
         s.visionAnswers['feel'] = text;
-        await _pause();
+        await _ack(text);
         setState(() {
           _coach('How do you want to look? It doesn\'t need to be a number on the scale.');
           step = 'look';
         });
       case 'look':
         s.visionAnswers['look'] = text;
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach('Noted. What do you want to be able to do?');
+          _coach('What do you want to be able to do?');
           step = 'able';
         });
       case 'able':
         s.visionAnswers['able_to_do'] = text;
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach('How would you show up differently, day to day?');
+          _coach("If you were already living this, what would you be doing differently on a normal day?");
           step = 'showup';
         });
       case 'showup':
         s.visionAnswers['show_up'] = text;
+        await _ack(text);
         await _buildVision();
       case 'focus':
         await _setFocus(text);
       case 'obstacle1':
         s.obstaclesText = text;
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach("That makes sense, and it's very common. When that happens, what usually happens next?");
+          _coach('When that happens, what usually happens next?');
           choices = const [
             QuickChoice('I order takeaway'),
             QuickChoice('I snack instead'),
@@ -227,12 +269,13 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
           busy = false;
           items.removeWhere((i) => i.kind == _K.loading);
           _coach("That's useful to know. We'll work around it rather than hoping it won't happen.");
+          _coach('A couple of deeper questions now. Your answers will help us create the best Brain Cheat Codes for you.');
           _coach("If you succeed at this, what does that say about the person you're becoming?");
           step = 'identity';
         });
       case 'identity':
         s.identity = text;
-        await _pause();
+        await _ack(text);
         setState(() {
           _coach('And why does that matter to you?');
           step = 'why';
@@ -240,22 +283,26 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
       case 'why':
         s.whyMatters = text;
         await s.save();
-        await _pause();
+        await _ack(text);
         setState(() {
-          _coach('Last one. When you complete something difficult, what would feel like a good little reward straight away? Something simple you enjoy.');
-          choices = const [
-            QuickChoice('Tea or coffee', icon: Icons.coffee_outlined),
-            QuickChoice('Favourite show', icon: Icons.tv, color: Color(0xFF7A62B8)),
-            QuickChoice('Music', icon: Icons.music_note_outlined, color: NC.success),
-            QuickChoice('Relaxation time', icon: Icons.spa_outlined, color: NC.success),
-            QuickChoice('Something enjoyable', icon: Icons.sentiment_satisfied_alt, color: NC.warning),
-            QuickChoice('Personal ritual', icon: Icons.favorite_border, color: NC.error),
-          ];
-          gridChoices = true;
+          _coach("Last one: rewards. A small reward straight after a Micro-Action helps it stick. Pick 2 to 4 that you'd genuinely enjoy at different times of day, or write your own. We'll match one to each Micro-Action.");
+          choices = rewardLibrary.map((r) => QuickChoice(r)).toList();
+          gridChoices = false;
           step = 'reward';
         });
       case 'reward':
-        s.reward = text;
+        final picked = text.split(RegExp(r'\s*[,;\n]\s*')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        final vague = picked.where((p) => p.split(' ').length <= 3 && _vague.any((v) => p.toLowerCase().contains(v)) && !rewardLibrary.contains(p)).toList();
+        if (vague.isNotEmpty && !_askedRewardDetail) {
+          _askedRewardDetail = true;
+          setState(() {
+            _coach('"${vague.first}" sounds good. What exactly would that be? Something specific you could do in a few minutes straight after, like a favourite song or a short walk outside.');
+            choices = rewardLibrary.map((r) => QuickChoice(r)).toList();
+          });
+          break;
+        }
+        s.rewards = picked.take(6).toList();
+        s.reward = s.rewards.first;
         await s.save();
         if (!mounted) return;
         final saved = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const RewardCardScreen()));
@@ -443,7 +490,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
               if (choices.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 QuickChoices(choices, grid: gridChoices, onPick: (v) {
-                  if (step == 'feel') {
+                  if (step == 'feel' || step == 'reward') {
                     final cur = input.text.trim();
                     input.text = cur.isEmpty ? v : '$cur, $v';
                     input.selection = TextSelection.collapsed(offset: input.text.length);
@@ -451,8 +498,8 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
                     answer(v);
                   }
                 }),
-                if (step == 'feel') const Text('Tap a few, add your own words, then send.', style: T.small),
-                if (step != 'feel')
+                if (step == 'feel' || step == 'reward') const Text('Tap a few, add your own words, then send.', style: T.small),
+                if (step != 'feel' && step != 'reward')
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Row(children: const [
@@ -481,9 +528,13 @@ class RewardCardScreen extends StatelessWidget {
             child: Image.asset('assets/images/reward_tea.jpg', height: 230, width: double.infinity, fit: BoxFit.cover),
           ),
           const SizedBox(height: 20),
-          const Text('YOUR REWARD', style: T.label),
+          const Text('YOUR REWARDS', style: T.label),
           const SizedBox(height: 8),
-          Text(AppState.I.reward, style: T.h2),
+          for (final r in AppState.I.rewards)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [const Icon(Icons.card_giftcard, color: NC.success, size: 20), const SizedBox(width: 10), Expanded(child: Text(r, style: T.h3))]),
+            ),
           const SizedBox(height: 10),
           const Text("We'll use this to reinforce the actions you take. Straight after you finish an action, this is yours.", style: T.sub),
           const SizedBox(height: 22),
@@ -508,6 +559,7 @@ class RewardCardScreen extends StatelessWidget {
             );
             if (r != null && r.trim().isNotEmpty) {
               AppState.I.reward = r.trim();
+              AppState.I.rewards = [r.trim(), ...AppState.I.rewards.skip(1)];
               await AppState.I.save();
               if (context.mounted) Navigator.pop(context, true);
             }
@@ -564,7 +616,7 @@ class SummaryScreen extends StatelessWidget {
             label: 'What matters to you',
             title: s.whyMatters.isEmpty ? s.identity : s.whyMatters),
         const SizedBox(height: 10),
-        InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your reward', title: s.reward),
+        InfoCard(icon: Icons.card_giftcard, tint: NC.sageTint, iconColor: NC.success, label: 'Your rewards', title: s.rewards.isEmpty ? s.reward : s.rewards.join(' · ')),
         const SizedBox(height: 18),
         Container(
           padding: const EdgeInsets.all(18),
@@ -574,12 +626,12 @@ class SummaryScreen extends StatelessWidget {
             SizedBox(width: 12),
             Expanded(
                 child: Text(
-                    "Next, we'll choose small, realistic steps towards your focus, one at a time. When real life gets in the way, talk to me and we'll adapt.",
+                    "Next, we'll choose small, realistic Micro-Actions towards your focus, one at a time. When real life gets in the way, talk to me and we'll adapt.",
                     style: T.body)),
           ]),
         ),
         const SizedBox(height: 20),
-        PrimaryButton('Build my first steps',
+        PrimaryButton('Build my first Micro-Actions',
             trailingArrow: true,
             testKey: const Key('summary_build'),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckInSetupScreen(onboarding: true)))),

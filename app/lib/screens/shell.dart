@@ -97,6 +97,7 @@ class HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<HomeTab> {
   final s = AppState.I;
+  bool adding = false;
 
   @override
   void initState() {
@@ -153,7 +154,7 @@ class _HomeTabState extends State<HomeTab> {
         },
         child: ListView(padding: const EdgeInsets.fromLTRB(20, 16, 20, 28), children: [
           Row(children: [
-            const NavooLogo(height: 26),
+            const NavooLogo(height: 40),
             const Spacer(),
             IconButton(
                 tooltip: 'Nudges',
@@ -173,6 +174,18 @@ class _HomeTabState extends State<HomeTab> {
                   label: '30 days complete',
                   title: 'Look back and choose your next focus',
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusCompleteScreen()))),
+            )
+          else if (s.reviewDraft.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: InfoCard(
+                  icon: Icons.event_note,
+                  tint: NC.warmTint,
+                  iconColor: NC.warning,
+                  label: 'Your weekly check-in',
+                  title: 'Continue your check-in',
+                  subtitle: "Pick up where you left off. Your answers are saved.",
+                  onTap: () => resumeReview(context)),
             )
           else if (reviewDue)
             Padding(
@@ -194,22 +207,33 @@ class _HomeTabState extends State<HomeTab> {
                 ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('YOUR FOCUS RIGHT NOW', style: T.label),
                     const SizedBox(height: 8),
-                    const Text("You've completed this week's steps.", style: T.h2),
+                    const Text("You've completed this week's Micro-Actions.", style: T.h2),
                     const SizedBox(height: 8),
-                    const Text("At your check-in we'll choose the next ones together, based on what you learned.", style: T.sub),
+                    const Text("Want to keep going this week? Add more, or do your check-in and we'll choose next week's together.", style: T.sub),
                     const SizedBox(height: 16),
-                    PrimaryButton('Start my check-in',
-                        trailingArrow: true, onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReviewIntro()))),
+                    PrimaryButton(adding ? 'Choosing...' : 'Add more Micro-Actions', icon: Icons.add, busy: adding, onPressed: () async {
+                      setState(() => adding = true);
+                      final ok = await addMoreMicroActions(context);
+                      if (!mounted) return;
+                      setState(() => adding = false);
+                      if (!ok) {
+                        toast(context, "Couldn't reach the coach. Try again in a moment.");
+                      } else {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
+                      }
+                    }),
+                    const SizedBox(height: 10),
+                    SoftButton('Start my check-in', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReviewIntro()))),
                   ])
                 : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text('YOUR FOCUS RIGHT NOW', style: T.label),
+                          const Text('YOUR MICRO-ACTION RIGHT NOW', style: T.label),
                           const SizedBox(height: 8),
                           Text(a.title, key: const Key('home_action_title'), style: T.h2),
                           const SizedBox(height: 6),
-                          Text(a.ifCue.isNotEmpty ? 'If ${a.ifCue}, then ${a.thenDo}.' : 'One small step towards your 30-day focus.', style: T.small),
+                          if (a.ifCue.isNotEmpty) IfThenLine(a.ifCue, a.thenDo, size: 14) else const Text('One small Micro-Action towards your 30-Day Focus.', style: T.small),
                         ]),
                       ),
                       const SizedBox(width: 10),
@@ -232,15 +256,40 @@ class _HomeTabState extends State<HomeTab> {
                         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ActionDetailScreen()))),
                     const SizedBox(height: 10),
                     PrimaryButton('Done', icon: Icons.check_circle, pressable3d: true, testKey: const Key('home_done'), onPressed: () => completeAction(context)),
-                    const SizedBox(height: 10),
-                    SoftButton('Things have changed, help me adapt',
-                        icon: Icons.tune, onPressed: () => widget.onCoach(preset: 'Things have changed with "${a.title}". ', send: false)),
-                    const SizedBox(height: 8),
-                    Center(
-                        child: LinkText('Help me adjust this',
-                            onTap: () => widget.onCoach(preset: '"${a.title}" isn\'t quite working for me. Can we adjust it?', send: true))),
+                    if (!a.codesDone) ...[
+                      const SizedBox(height: 10),
+                      SoftButton('Set up my Brain Cheat Codes', icon: Icons.psychology_outlined,
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)))),
+                    ],
                   ]),
           ),
+          if (a != null) ...[
+            const SizedBox(height: 14),
+            _AdaptCard(onPick: (msg, send) => widget.onCoach(preset: msg, send: send), title: a.title),
+          ],
+          if (s.queue.length > 1) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: NC.border)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Expanded(child: Text("THIS WEEK'S MICRO-ACTIONS", style: T.label)),
+                  TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusScreen())), child: const Text('See & edit')),
+                ]),
+                for (final q in s.queue.take(3))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(children: [
+                      Icon(q.status == 'active' ? Icons.radio_button_checked : Icons.lock_outline, size: 20, color: q.status == 'active' ? NC.blue : NC.slate),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(q.title, style: TextStyle(fontSize: 15.5, color: q.status == 'active' ? NC.navy : NC.slate, fontWeight: q.status == 'active' ? FontWeight.w600 : FontWeight.w400))),
+                      if (q.status != 'active') const Text('Coming next', style: T.small),
+                    ]),
+                  ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 14),
           // Daily coach slot
           Material(
@@ -278,7 +327,7 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 14),
           InfoCard(
               icon: Icons.event_available,
-              label: 'Your 30-day focus · week $week',
+              label: 'Your 30-Day Focus · week $week',
               title: s.focus,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusScreen()))),
           const SizedBox(height: 10),
@@ -315,7 +364,7 @@ class _FocusScreenState extends State<FocusScreen> {
           const SizedBox(height: 8),
           Text('Under your vision: ${s.visionHeadline}', style: T.sub),
           const SizedBox(height: 20),
-          const Text('YOUR STEPS', style: T.label),
+          const Text('YOUR MICRO-ACTIONS', style: T.label),
           const SizedBox(height: 10),
           for (final a in s.actions.reversed.take(9))
             Padding(
@@ -350,4 +399,48 @@ class _FocusScreenState extends State<FocusScreen> {
               onPressed: () => openCoach(context, preset: 'Can we talk about my 30-day focus? ')),
         ]),
       );
+}
+
+
+/// P1: a clear, coloured "How is this going?" card with three choices.
+class _AdaptCard extends StatelessWidget {
+  final void Function(String msg, bool send) onPick;
+  final String title;
+  const _AdaptCard({required this.onPick, required this.title});
+  @override
+  Widget build(BuildContext context) {
+    Widget choice(IconData icon, String label, String msg, Color c, {bool send = true}) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => onPick(msg, send),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                child: Row(children: [
+                  Icon(icon, color: c),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(label, style: const TextStyle(fontSize: 15.5, color: NC.navy, fontWeight: FontWeight.w600))),
+                  const Icon(Icons.chevron_right, color: NC.slate),
+                ]),
+              ),
+            ),
+          ),
+        );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: NC.warmTint, borderRadius: BorderRadius.circular(22)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('How is this going?', style: T.h3),
+        const SizedBox(height: 4),
+        const Text("Adapting your Micro-Actions to real life is how change sticks. Tell Navoo and we'll adjust.", style: T.small),
+        const SizedBox(height: 12),
+        choice(Icons.trending_up, "I'm nailing it, make it harder", 'I\'m nailing "$title". Can we make it a bit harder?', NC.success),
+        choice(Icons.support, "I'm struggling, help me", 'I\'m struggling with "$title". Can you help me?', NC.error),
+        choice(Icons.tune, 'Something has changed', 'Something has changed with "$title". ', NC.blue, send: false),
+      ]),
+    );
+  }
 }

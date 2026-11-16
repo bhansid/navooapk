@@ -350,7 +350,7 @@ class _NudgeSettingsScreenState extends State<NudgeSettingsScreen> {
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('TYPES OF NUDGES', style: T.label)),
           _sw('Your own words', 'Your own If/Then words, played back at the right moment', s.nudgeOwnWords, (v) => s.nudgeOwnWords = v),
           _sw('Encouragement', 'A reminder of who you are becoming', s.nudgeEncouragement, (v) => s.nudgeEncouragement = v),
-          _sw('Quick tips', 'Small tricks that make the next step easier', s.nudgeTips, (v) => s.nudgeTips = v),
+          _sw('Quick tips', 'Small tricks that make the next Micro-Action easier', s.nudgeTips, (v) => s.nudgeTips = v),
           _sw('Progress insights', 'What Navoo has noticed about what works for you', s.nudgeProgress, (v) => s.nudgeProgress = v),
           _sw('Weekly check-in', 'A reminder at your chosen check-in time', s.nudgeWeekly, (v) => s.nudgeWeekly = v),
           const Divider(),
@@ -437,7 +437,7 @@ Future<void> confirmDelete(BuildContext context) async {
     builder: (_) => AlertDialog(
       backgroundColor: NC.bg,
       title: const Text('Delete everything?', style: T.h3),
-      content: const Text('This permanently deletes your account, your vision, your actions, your conversations and everything Navoo has learned about you. It cannot be undone.',
+      content: const Text('This permanently deletes your account, your Vision, your Micro-Actions, your conversations and everything Navoo has learned about you. It cannot be undone.',
           style: T.body),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -493,7 +493,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               iconColor: NC.success,
               title: 'How your data is used',
               onTap: () => info('How your data is used',
-                  'Your vision, actions, check-ins and conversations are stored on this phone. When you talk to Navoo, the relevant parts are sent securely to our AI coach so it can reply in a way that fits you. Navoo is an AI coach, not a medical service, and its suggestions are not medical advice.\n\nIf you mention something that suggests you may be at risk, Navoo will share crisis support and may flag it privately to the Navoo team so they can follow up safely.')),
+                  'Your Vision, Micro-Actions, check-ins and conversations are stored on this phone. When you talk to Navoo, the relevant parts are sent securely to our AI coach so it can reply in a way that fits you. Navoo is an AI coach, not a medical service, and its suggestions are not medical advice.\n\nIf you mention something that suggests you may be at risk, Navoo will share crisis support and may flag it privately to the Navoo team so they can follow up safely.')),
           const SizedBox(height: 10),
           InfoCard(icon: Icons.download_outlined, title: 'Export my data', subtitle: 'Download a copy of your data.', onTap: export),
           const SizedBox(height: 10),
