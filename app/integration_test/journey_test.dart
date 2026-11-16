@@ -79,6 +79,16 @@ void main() {
       throw TestFailure('Coach did not reply. Steps: $log');
     }
 
+    // The coach acknowledges each answer (C1); wait until it has finished before answering again.
+    Future<void> waitIdle() async {
+      await wait(800);
+      for (var i = 0; i < 90 * 5; i++) {
+        await t.pump(const Duration(milliseconds: 200));
+        if (find.byType(TypingBubble).evaluate().isEmpty) break;
+      }
+      await wait(600);
+    }
+
     app.main();
     await wait(2500);
     await shot('01_splash');
@@ -107,11 +117,11 @@ void main() {
     await tap(find.text('Energetic'));
     await shot('07_vision_feel');
     await tap(find.byKey(const Key('chat_send')));
-    await wait(1200);
+    await waitIdle();
     await sendChat('Stronger and healthier. Not a number on the scale.');
-    await wait(1200);
+    await waitIdle();
     await sendChat('Keep up with my kids, travel more and be active without feeling tired.');
-    await wait(1200);
+    await waitIdle();
     await sendChat('More present and confident, and I would stop avoiding photos.');
     await waitFor(find.byKey(const Key('vision_save')), secs: 150);
     await shot('08_vision_card');
@@ -132,7 +142,7 @@ void main() {
     }
     await shot('11_identity');
     await sendChat("Someone who takes their health seriously and has energy for their family.");
-    await wait(1500);
+    await waitIdle();
     await sendChat('My kids. I want to keep up with them.');
     await waitFor(find.text('A cup of tea or coffee'));
     await tap(find.text('A cup of tea or coffee'));
