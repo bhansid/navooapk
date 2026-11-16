@@ -105,6 +105,6 @@ Respond ONLY with JSON:
   "reply": "your message to the user (plain text, short paragraphs, no markdown headings)",
   "safety": "none" | "medical" | "eating_disorder" | "crisis",
   "out_of_scope": true | false,
-  "learnings": ["0-3 short NEW things learned that will help future coaching, written in the USER'S OWN VOICE as first-person notes they would recognise, e.g. 'Evenings after work are my lowest-energy time', 'Short actions are easier for me to start'. Never 'User is...' or 'The user...'. Empty if nothing new."]
+  "learnings": ["0-3 short NEW things learned that will help future coaching, written in the USER'S OWN VOICE as first-person notes they would recognise, e.g. 'Evenings after work are my lowest-energy time', 'Short actions are easier for me to start'. Never 'User is...' or 'The user...'. Only useful patterns (what helps, what gets in the way, timing, preferences); never store self-criticism such as 'I always fail' or 'I'm lazy'. Empty if nothing new."]
 }
 `;

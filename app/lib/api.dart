@@ -24,10 +24,13 @@ class Coach {
   static String get _user => AppState.I.email ?? 'guest';
 
   static Future<CoachReply> chat(List<ChatMsg> history) async {
-    final r = await _chatOnce(history);
-    if (!r.failed) return r;
-    await Future.delayed(const Duration(seconds: 2));
-    return _chatOnce(history);
+    var r = await _chatOnce(history);
+    for (final wait in const [2, 5]) {
+      if (!r.failed) return r;
+      await Future.delayed(Duration(seconds: wait));
+      r = await _chatOnce(history);
+    }
+    return r;
   }
 
   static Future<CoachReply> _chatOnce(List<ChatMsg> history) async {

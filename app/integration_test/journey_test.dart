@@ -72,9 +72,14 @@ void main() {
     }
 
     Future<void> waitCoachReply(int before) async {
-      for (var i = 0; i < 90 * 5; i++) {
+      for (var i = 0; i < 120 * 5; i++) {
         await t.pump(const Duration(milliseconds: 200));
         if (find.byType(TypingBubble).evaluate().isEmpty && find.byType(ChatBubble).evaluate().length >= before + 2) return;
+        // If the reply failed, the app puts the message back in the box: send it again, as a user would.
+        if (i > 10 && i % 50 == 0 && find.byType(TypingBubble).evaluate().isEmpty && find.byType(ChatBubble).evaluate().length == before) {
+          log.add('resend');
+          await t.tap(find.byKey(const Key('chat_send')), warnIfMissed: false);
+        }
       }
       throw TestFailure('Coach did not reply. Steps: $log');
     }

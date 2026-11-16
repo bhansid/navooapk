@@ -288,7 +288,12 @@ export default async (req) => {
     }
 
     const system = `${COACH_SYSTEM}${team}\n\nWHAT YOU KNOW ABOUT THIS USER (use it, don't make them repeat themselves):\n${profileBlock(profile)}\n${OUTPUT_RULES}`;
-    const out = await generate(system, trimmed);
+    let out = await generate(system, trimmed);
+    // An empty or malformed reply is retried once (the user should never see a blank answer).
+    if (!String(out?.reply || "").trim()) {
+      console.error("empty reply, retrying", JSON.stringify(out).slice(0, 300));
+      out = await generate(system + "\nIMPORTANT: the \"reply\" field must contain your message to the user.", trimmed);
+    }
     const safety = ["medical", "eating_disorder", "crisis"].includes(out.safety) ? out.safety : "none";
     if (safety === "crisis" || safety === "eating_disorder") await flagSafety(userId, safety, lastText);
     return json({
