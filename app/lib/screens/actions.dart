@@ -311,6 +311,10 @@ String cleanThen(String t) {
   var x = t.trim();
   if (x.toLowerCase().startsWith('then ')) x = x.substring(5).trim();
   if (x.endsWith('.')) x = x.substring(0, x.length - 1);
+  // C9: always "THEN I will ...".
+  final l = x.toLowerCase();
+  if (x.isNotEmpty && !l.startsWith('i will') && !l.startsWith("i'll") && !l.startsWith('i ')) x = 'I will ${x[0].toLowerCase()}${x.substring(1)}';
+  if (l.startsWith("i'll ")) x = 'I will ${x.substring(5)}';
   return x;
 }
 
@@ -624,20 +628,23 @@ class _IfThenScreenState extends State<IfThenScreen> {
             if (nudgeIdeas.isNotEmpty) ...[
               const Text('IDEAS FROM NAVOO', style: T.label),
               const SizedBox(height: 6),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (var k = 0; k < nudgeIdeas.length; k++)
-                  ActionChip(
-                    key: Key('nudge_$k'),
-                    label: Text(nudgeIdeas[k]),
-                    backgroundColor: Colors.white,
-                    side: BorderSide.none,
-                    labelStyle: const TextStyle(color: NC.navy, fontSize: 14),
-                    onPressed: () => setState(() {
-                      nudge.text = nudgeIdeas[k];
-                      error = '';
-                    }),
+              for (var k = 0; k < nudgeIdeas.length; k++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      key: Key('nudge_$k'),
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => setState(() {
+                        nudge.text = nudgeIdeas[k];
+                        error = '';
+                      }),
+                      child: Padding(padding: const EdgeInsets.all(12), child: Text(nudgeIdeas[k], style: const TextStyle(color: NC.navy, fontSize: 14.5, height: 1.35))),
+                    ),
                   ),
-              ]),
+                ),
             ],
           ]),
           if (s.rewards.isNotEmpty)

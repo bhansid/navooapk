@@ -146,7 +146,7 @@ void main() {
     await sendChat('My kids. I want to keep up with them.');
     await waitFor(find.text('A cup of tea or coffee'));
     await tap(find.text('A cup of tea or coffee'));
-    await tap(find.text('My favourite song, turned up'));
+    await tap(find.text('My favourite song, played loud'));
     await shot('12_reward_chat');
     await tap(find.byKey(const Key('chat_send')));
     await waitFor(find.byKey(const Key('reward_save')));

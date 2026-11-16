@@ -169,7 +169,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
   static const rewardLibrary = [
     'A cup of tea or coffee',
     '10 minutes of my favourite show',
-    'My favourite song, turned up',
+    'My favourite song, played loud',
     'A few minutes outside in fresh air',
     'Telling myself "you\'ve got this"',
     'A pat on the back',
@@ -294,7 +294,16 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
           step = 'reward';
         });
       case 'reward':
-        final picked = text.split(RegExp(r'\s*[,;\n]\s*')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        // Library rewards may contain commas, so take those out whole first, then split the rest.
+        var rest = text;
+        final picked = <String>[];
+        for (final lib in rewardLibrary) {
+          if (rest.contains(lib)) {
+            picked.add(lib);
+            rest = rest.replaceAll(lib, ',');
+          }
+        }
+        picked.addAll(rest.split(RegExp(r'\s*[,;\n]\s*')).map((e) => e.trim()).where((e) => e.isNotEmpty));
         final vague = picked.where((p) => p.split(' ').length <= 3 && _vague.any((v) => p.toLowerCase().contains(v)) && !rewardLibrary.contains(p)).toList();
         if (vague.isNotEmpty && !_askedRewardDetail) {
           _askedRewardDetail = true;
