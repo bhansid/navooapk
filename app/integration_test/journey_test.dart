@@ -193,7 +193,7 @@ void main() {
     await shot('22_reward_ready');
     await tap(find.byKey(const Key('claim_reward')));
     await wait(2500);
-    if (find.text('Skip for now').evaluate().isNotEmpty) {
+    if (find.text('Your Brain Cheat Codes').evaluate().isNotEmpty) {
       await shot('22b_next_codes');
       await tap(find.text('Skip for now'));
       await wait(1500);
@@ -256,7 +256,7 @@ void main() {
     await shot('34_next_week');
     await tap(find.byKey(const Key('nextweek_accept')));
     await wait(2500);
-    if (find.text('Skip for now').evaluate().isNotEmpty) {
+    if (find.text('Your Brain Cheat Codes').evaluate().isNotEmpty) {
       await shot('34b_codes_after_review');
       await tap(find.text('Skip for now'));
       await wait(1500);
