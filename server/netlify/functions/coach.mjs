@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getStore } from "@netlify/blobs";
 import { COACH_SYSTEM, OUTPUT_RULES } from "./coaching-prompt.mjs";
 
-const PREFERRED = (process.env.NAVOO_MODELS || "gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-flash-lite-latest").split(",").map((m) => m.trim());
+const PREFERRED = (process.env.NAVOO_MODELS || "gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-3.1-flash,gemini-flash-latest").split(",").map((m) => m.trim());
 let workingModel = null;
 let discovered = null;
 
@@ -103,8 +103,18 @@ async function generate(system, contents, wantJson = true) {
     }
     return null;
   };
+  // R14: remember the model that works across cold starts, so the first reply doesn't try dead models.
+  if (!workingModel) {
+    try {
+      workingModel = (await getStore("coach-config").get("model")) || null;
+    } catch {}
+  }
+  const before = workingModel;
   let r = await tryList([workingModel, ...PREFERRED]);
   if (!r) r = await tryList((await discoverModels()).slice(0, 6));
+  if (r && workingModel && workingModel !== before) {
+    getStore("coach-config").set("model", workingModel).catch(() => {});
+  }
   if (r) return r.out;
   throw new Error(errors.join(" | ").slice(0, 900));
 }

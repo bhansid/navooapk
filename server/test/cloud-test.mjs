@@ -42,6 +42,10 @@ const ack = await task("acknowledge", { question: "What would you most like to c
 ok("C1 acknowledge returns a line", !!ack?.line, JSON.stringify(ack));
 ok("C1 acknowledge has no question", ack?.line && !ack.line.includes("?"), ack?.line);
 
+// Vision is written by the coach (not the app's fallback text).
+const vis = await task("vision", { wish: "Lose weight and feel healthier", reason: "confidence", feel: "Lighter, Confident", look: "Comfortable in my clothes", able_to_do: "Keep up with my kids", show_up: "Walk more and cook at home" });
+ok("Vision: headline and body written", !!vis?.headline && !!vis?.body, JSON.stringify(vis));
+
 // C3 + C4
 const fo = await task("focus_options", { wish: profile.wish, reason: "confidence", vision: profile.vision });
 const titles = (fo?.options || []).map((o) => o.title);

@@ -142,7 +142,12 @@ void main() {
     await shot('09_focus_options');
     // R6: other options, then back to the earlier ones; a typed request is not saved as the focus.
     await tap(find.text('Show other options'));
-    await waitFor(find.text('Previous options'), secs: 90);
+    for (var i = 0; i < 90 * 5 && find.text('Previous options').evaluate().isEmpty; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+      // If the coach couldn't be reached, the app says so and keeps the options; try again once, as a user would.
+      if (i == 60 * 5) await tap(find.text('Show other options'));
+    }
+    await waitFor(find.text('Previous options'), secs: 30);
     await shot('09b_other_options');
     await tap(find.text('Previous options'));
     await wait(1000);
