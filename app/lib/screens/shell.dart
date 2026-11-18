@@ -14,6 +14,11 @@ import 'vision.dart';
 final shellKey = GlobalKey<_MainShellState>();
 
 void openCoach(BuildContext context, {String preset = '', bool send = false}) {
+  // R7/R17: from inside a flow, open the coach on top so Back returns to the same place.
+  if (Navigator.of(context).canPop()) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CoachScreen(standalone: true, preset: preset, autoSend: send)));
+    return;
+  }
   final st = shellKey.currentState;
   if (st != null && st.mounted) {
     Navigator.of(context).popUntil((r) => r.isFirst);
@@ -78,7 +83,7 @@ class _MainShellState extends State<MainShell> {
         }),
         destinations: const [
           NavigationDestination(key: Key('tab_home'), icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: NC.blue), label: 'Home'),
-          NavigationDestination(key: Key('tab_coach'), icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble, color: NC.blue), label: 'Coach'),
+          NavigationDestination(key: Key('tab_coach'), icon: CoachTabIcon(), selectedIcon: CoachTabIcon(selected: true), label: 'Coach'),
           NavigationDestination(key: Key('tab_progress'), icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart, color: NC.blue), label: 'Progress'),
           NavigationDestination(key: Key('tab_me'), icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: NC.blue), label: 'Me'),
         ],
@@ -213,13 +218,13 @@ class _HomeTabState extends State<HomeTab> {
                     const SizedBox(height: 16),
                     PrimaryButton(adding ? 'Choosing...' : 'Add more Micro-Actions', icon: Icons.add, busy: adding, onPressed: () async {
                       setState(() => adding = true);
-                      final ok = await addMoreMicroActions(context);
+                      final list = await suggestMoreMicroActions();
                       if (!mounted) return;
                       setState(() => adding = false);
-                      if (!ok) {
+                      if (list.isEmpty) {
                         toast(context, "Couldn't reach the coach. Try again in a moment.");
                       } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ConfirmMicroActionsScreen(suggested: list)));
                       }
                     }),
                     const SizedBox(height: 10),
@@ -290,6 +295,8 @@ class _HomeTabState extends State<HomeTab> {
               ]),
             ),
           ],
+          const SizedBox(height: 14),
+          CoachSignpost(onTap: () => widget.onCoach(preset: "I'm struggling with my 30-Day Focus. ", send: false)),
           const SizedBox(height: 14),
           // Daily coach slot
           Material(
@@ -366,28 +373,15 @@ class _FocusScreenState extends State<FocusScreen> {
 
   Future<void> _different() async {
     setState(() => busy = true);
-    final r = await Coach.task('actions', {
-      'focus': s.focus,
-      'vision': s.visionHeadline,
-      'obstacles': s.obstaclesText,
-      'how_many': s.queue.length.clamp(1, 3),
-      'all_previous_micro_actions': s.actions.where((a) => a.status == 'done' || a.status == 'skipped').map((a) => a.title).toList(),
-      'rejected_suggestions': s.queue.map((a) => a.title).toList(),
-      'instruction': "The user wants different Micro-Actions for this week. Build on what they've already completed; don't reuse or reword the rejected ones.",
-    });
-    final list = parseActions(r, 'actions', s.week);
-    if (list.isNotEmpty) {
-      s.actions.removeWhere((x) => x.status == 'locked' || x.status == 'active');
-      s.actions.addAll(list);
-      s.activateNext();
-      await s.save();
-    }
+    final list = await suggestMoreMicroActions(rejected: s.queue.map((a) => a.title).toList(), replaceQueue: true);
     if (!mounted) return;
     setState(() => busy = false);
     if (list.isEmpty) {
       toast(context, "Couldn't reach the coach. Try again in a moment.");
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)));
+      // R16: show the new set with a Confirm button first.
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => ConfirmMicroActionsScreen(suggested: list, replaceQueue: true)));
+      if (mounted) setState(() {});
     }
   }
 
@@ -524,6 +518,35 @@ Future<void> makeItHarder(BuildContext context) async {
 }
 
 /// P1: a clear, coloured "How is this going?" card with three choices.
+/// R15: a gentle reminder that the coach is there.
+class CoachSignpost extends StatelessWidget {
+  final VoidCallback onTap;
+  const CoachSignpost({super.key, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: NC.lilacTint, borderRadius: BorderRadius.circular(22)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const CoachAvatar(size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text(
+                  "Remember your coach is here any time you're struggling with your 30-Day Focus. Don't struggle in silence: message Navoo and we'll work out the next step together.",
+                  style: TextStyle(fontSize: 15, height: 1.4, color: NC.navy)),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: onTap,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 36)),
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text('Message Navoo'),
+              ),
+            ]),
+          ),
+        ]),
+      );
+}
+
 class _AdaptCard extends StatelessWidget {
   final void Function(String msg, bool send) onPick;
   final String title;

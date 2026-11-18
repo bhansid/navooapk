@@ -20,6 +20,11 @@ class CoachReply {
 }
 
 class Coach {
+  /// R14: wake the coach server as the app opens, so the first real reply is not a cold start.
+  static void warmUp() {
+    http.get(Uri.parse('$kApiBase/api/coach')).timeout(const Duration(seconds: 15)).then((_) {}, onError: (_) {});
+  }
+
   static final _client = http.Client();
   static String get _user => AppState.I.email ?? 'guest';
 

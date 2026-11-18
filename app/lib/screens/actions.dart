@@ -368,11 +368,11 @@ class _IfThenScreenState extends State<IfThenScreen> {
   final s = AppState.I;
   late final a = s.currentAction!;
   late final mIf = TextEditingController(text: a.ifCue);
-  late final mThen = TextEditingController(text: a.thenDo.isNotEmpty ? a.thenDo : _defaultThen());
+  late final mThen = TextEditingController(text: a.thenDo); // R10: starts blank; ideas are tap-to-use
   late final sIf = TextEditingController(text: a.backupIf);
   late final sThen = TextEditingController(text: a.backupThen);
   late final nudge = TextEditingController(text: a.setup);
-  late String reward = s.rewardFor(a);
+  late String reward = a.reward == kNoReward ? kNoReward : s.rewardFor(a);
   late int trigH = a.triggerHour;
   late int trigM = a.triggerMinute;
   bool loading = true;
@@ -380,10 +380,9 @@ class _IfThenScreenState extends State<IfThenScreen> {
   List<Map<String, String>> momentIdeas = [], slipIdeas = [];
   List<String> nudgeIdeas = [];
 
-  String _defaultThen() {
-    final t = a.title.trim();
-    return t.isEmpty ? '' : 'I will ${t[0].toLowerCase()}${t.substring(1)}';
-  }
+  // R11: the slip-up plan and the Physical Nudge can each be skipped for now.
+  late bool skipSlip = a.codesDone && a.backupIf.isEmpty;
+  late bool skipNudge = a.codesDone && a.setup.isEmpty;
 
   List<Map<String, String>> _pairs(dynamic l) => (l is List)
       ? l.whereType<Map>().map((m) => {'if': cleanIf('${m['if'] ?? ''}'), 'then': cleanThen('${m['then'] ?? ''}')}).where((m) => m['if']!.isNotEmpty).take(3).toList()
@@ -424,17 +423,17 @@ class _IfThenScreenState extends State<IfThenScreen> {
   Future<void> lockIn() async {
     final missing = <String>[];
     if (mIf.text.trim().isEmpty || mThen.text.trim().isEmpty) missing.add('your moment');
-    if (sIf.text.trim().isEmpty || sThen.text.trim().isEmpty) missing.add('your slip-up plan');
-    if (nudge.text.trim().isEmpty) missing.add('your Physical Nudge');
+    if (!skipSlip && (sIf.text.trim().isEmpty || sThen.text.trim().isEmpty)) missing.add('your slip-up plan');
+    if (!skipNudge && nudge.text.trim().isEmpty) missing.add('your Physical Nudge');
     if (missing.isNotEmpty) {
-      setState(() => error = 'Add ${missing.join(', ')} to lock this in. Tap one of Navoo\'s ideas if you\'re stuck, or choose "Skip for now".');
+      setState(() => error = 'Add ${missing.join(' and ')} to lock this in. Tap one of Navoo\'s ideas if you\'re stuck, or choose "Skip for now" on that part.');
       return;
     }
     a.ifCue = cleanIf(mIf.text);
     a.thenDo = cleanThen(mThen.text);
-    a.backupIf = cleanIf(sIf.text);
-    a.backupThen = cleanThen(sThen.text);
-    a.setup = nudge.text.trim();
+    a.backupIf = skipSlip ? '' : cleanIf(sIf.text);
+    a.backupThen = skipSlip ? '' : cleanThen(sThen.text);
+    a.setup = skipNudge ? '' : nudge.text.trim();
     a.reward = reward;
     a.triggerHour = trigH;
     a.triggerMinute = trigM;
@@ -535,6 +534,22 @@ class _IfThenScreenState extends State<IfThenScreen> {
     ]);
   }
 
+  /// R11: a part the user skipped collapses to one line they can reopen.
+  Widget _skipped(String label, Color tint, VoidCallback reopen) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
+        child: Row(children: [
+          Expanded(child: Text('$label · skipped for now', style: T.small)),
+          TextButton(onPressed: reopen, child: const Text('Add it')),
+        ]),
+      );
+
+  Widget _skipLink(String key, VoidCallback onTap) => Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(key: Key(key), onPressed: onTap, child: const Text('Skip this part for now')),
+      );
+
   Widget _section(String label, Color tint, List<Widget> children) => Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(16),
@@ -547,12 +562,36 @@ class _IfThenScreenState extends State<IfThenScreen> {
         step: widget.fromHome ? null : 5,
         body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
           if (widget.unlocked) ...[
-            const Text('NEXT MICRO-ACTION UNLOCKED', style: T.label),
-            const SizedBox(height: 6),
+            // R13: the unlocked Micro-Action is the headline, not small grey text.
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: NC.sageTint, borderRadius: BorderRadius.circular(22)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.lock_open_rounded, color: NC.success, size: 20),
+                  SizedBox(width: 8),
+                  Text('NEXT MICRO-ACTION UNLOCKED', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 1.1, color: NC.success)),
+                ]),
+                const SizedBox(height: 10),
+                Text(a.title, style: T.h1),
+                if (a.description.isNotEmpty) ...[const SizedBox(height: 6), Text(a.description, style: T.body)],
+              ]),
+            ),
+            const SizedBox(height: 18),
+            const Text('Your Brain Cheat Codes', style: T.h2),
+          ] else ...[
+            const Text('Your Brain Cheat Codes', style: T.h1),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: NC.border)),
+              child: Row(children: [
+                Icon(iconFor(a.title), color: NC.success),
+                const SizedBox(width: 10),
+                Expanded(child: Text(a.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: NC.navy, height: 1.3))),
+              ]),
+            ),
           ],
-          const Text('Your Brain Cheat Codes', style: T.h1),
-          const SizedBox(height: 8),
-          Text('For "${a.title}".', style: T.sub),
           const SizedBox(height: 14),
           Material(
             color: NC.blueTint,
@@ -584,8 +623,8 @@ class _IfThenScreenState extends State<IfThenScreen> {
               'This exercise, called If/Then planning, is scientifically proven to make you 2-3 times more likely to complete the action. Writing it in your own words is part of what makes it work.'),
           const SizedBox(height: 12),
           _section('LINK IT TO A MOMENT IN YOUR DAY', Colors.white, [
-            _box('IF', mIf, 'I have finished eating my lunch', NC.success, k: const Key('if_cue')),
-            _box('THEN', mThen, 'I will …', NC.blue, k: const Key('then_do')),
+            _box('IF', mIf, 'Write your moment, or tap an idea', NC.success, k: const Key('if_cue')),
+            _box('THEN', mThen, 'I will…', NC.blue, k: const Key('then_do')),
             _ideas(momentIdeas, mIf, mThen, 'idea'),
             const SizedBox(height: 4),
             Material(
@@ -602,19 +641,29 @@ class _IfThenScreenState extends State<IfThenScreen> {
               ),
             ),
           ]),
-          _section('PLAN FOR A SLIP-UP', NC.warmTint, [
-            const Text('What will you do if your motivation drops or the barrier shows up?', style: T.body),
-            const SizedBox(height: 10),
-            _box('IF', sIf, 'I am too tired when I get home', NC.success, k: const Key('slip_if')),
-            _box('THEN', sThen, 'I will remind myself of my Vision', NC.blue, k: const Key('slip_then')),
-            _ideas(slipIdeas, sIf, sThen, 'slip'),
-          ]),
+          if (skipSlip)
+            _skipped('PLAN FOR A SLIP-UP', NC.warmTint, () => setState(() => skipSlip = false))
+          else
+            _section('PLAN FOR A SLIP-UP', NC.warmTint, [
+              const Text('What will you do if your motivation drops or the barrier shows up?', style: T.body),
+              const SizedBox(height: 10),
+              _box('IF', sIf, 'Write the slip-up moment, or tap an idea', NC.success, k: const Key('slip_if')),
+              _box('THEN', sThen, 'I will…', NC.blue, k: const Key('slip_then')),
+              _ideas(slipIdeas, sIf, sThen, 'slip'),
+              _skipLink('skip_slip', () => setState(() {
+                    skipSlip = true;
+                    error = '';
+                  })),
+            ]),
           const SizedBox(height: 4),
           const Text('2. Create a Physical Nudge', style: T.h2),
           const SizedBox(height: 8),
           _explainer(Icons.home_work_outlined, 'Why this works',
               'This exercise, called Environment Design, works because your surroundings shape what you do, especially when you\'re tired. One small change to your space makes the right choice the easy, visible one.'),
           const SizedBox(height: 12),
+          if (skipNudge)
+            _skipped('YOUR PHYSICAL NUDGE', NC.lilacTint, () => setState(() => skipNudge = false))
+          else
           _section('YOUR PHYSICAL NUDGE', NC.lilacTint, [
             TextField(
               key: const Key('nudge'),
@@ -622,7 +671,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
               minLines: 1,
               maxLines: null, // B3: grows with the answer
               onChanged: (_) => setState(() => error = ''),
-              decoration: const InputDecoration(hintText: 'e.g. leave the ingredients on the worktop before work'),
+              decoration: const InputDecoration(hintText: 'Write one small change to your space, or tap an idea'),
             ),
             const SizedBox(height: 8),
             if (nudgeIdeas.isNotEmpty) ...[
@@ -646,6 +695,10 @@ class _IfThenScreenState extends State<IfThenScreen> {
                   ),
                 ),
             ],
+            _skipLink('skip_nudge', () => setState(() {
+                  skipNudge = true;
+                  error = '';
+                })),
           ]),
           if (s.rewards.isNotEmpty)
             _section('YOUR REWARD FOR THIS MICRO-ACTION', NC.sageTint, [
@@ -662,6 +715,25 @@ class _IfThenScreenState extends State<IfThenScreen> {
                     onSelected: (_) => setState(() => reward = r),
                   ),
               ]),
+              const SizedBox(height: 10),
+              // R12: going without a reward is a valid choice (wraps, unlike a chip).
+              Material(
+                color: reward == kNoReward ? NC.success : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  key: const Key('no_reward'),
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => setState(() => reward = kNoReward),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(children: [
+                      Icon(Icons.thumb_up_alt_outlined, size: 20, color: reward == kNoReward ? Colors.white : NC.success),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(kNoReward, style: TextStyle(fontSize: 14, height: 1.3, color: reward == kNoReward ? Colors.white : NC.navy))),
+                    ]),
+                  ),
+                ),
+              ),
             ]),
           if (error.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(error, style: const TextStyle(color: NC.error))),
           PrimaryButton('Lock in my Brain Cheat Codes', trailingArrow: true, onPressed: lockIn, testKey: const Key('ifthen_lock')),
@@ -995,7 +1067,7 @@ class _RewardClaimScreenState extends State<RewardClaimScreen> with SingleTicker
         const SizedBox(height: 10),
         Row(children: [
           Expanded(
-            child: SoftButton('Change reward', outlined: true, onPressed: () async {
+            child: SoftButton('Choose a different reward', outlined: true, onPressed: () async {
               final pick = await showModalBottomSheet<String>(
                 context: context,
                 backgroundColor: NC.bg,

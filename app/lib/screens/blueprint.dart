@@ -62,26 +62,37 @@ class PersonalIntroScreen extends StatelessWidget {
       );
 }
 
+/// R2: "What's the science behind this?" Navoo is supplying the final copy; each section below is a
+/// placeholder in the agreed structure (why willpower alone is not enough, then the three Brain Cheat Codes).
+const scienceSections = <(String, String)>[
+  ('Why willpower alone is not enough',
+      'Willpower runs low when we are tired, stressed or busy, which is exactly when old habits take over. Behavioural science gives you ways to make the right choice easier, so you rely on it less.'),
+  ('Nudges', 'Small changes to your surroundings, like leaving your trainers by the door, make the action you want the easy and obvious one.'),
+  ('Brain shortcuts (heuristics)', 'Your brain loves shortcuts. Navoo helps you set up simple rules and cues so the healthy choice becomes the automatic one.'),
+  ('If/Then planning (implementation intentions)',
+      'Deciding in advance "IF this happens, THEN I will do that" means you do not have to decide in the moment. Research shows it makes people much more likely to follow through.'),
+  ('Brain Cheat Codes', 'Together these are your Brain Cheat Codes: Navoo helps you create them for every Micro-Action.'),
+];
+
 void showScienceSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: NC.bg,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (_) => const Padding(
-      padding: EdgeInsets.fromLTRB(26, 26, 26, 36),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Why this works', style: T.h2),
-        SizedBox(height: 14),
-        Text('• A clear picture of where you are heading helps you notice choices that move you towards it.', style: T.body),
-        SizedBox(height: 8),
-        Text('• Naming what will get in the way, before it happens, makes it easier to handle when it does.', style: T.body),
-        SizedBox(height: 8),
-        Text('• Deciding "if this happens, then I will do that" in advance makes follow-through more likely.', style: T.body),
-        SizedBox(height: 8),
-        Text('• A small reward straight after a Micro-Action helps it stick.', style: T.body),
-        SizedBox(height: 8),
-        Text('• When something doesn\'t work, we adapt the approach, not the goal.', style: T.body),
+    builder: (_) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.92,
+      builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.fromLTRB(26, 26, 26, 36), children: [
+        const Text("What's the science behind this?", style: T.h2),
+        const SizedBox(height: 14),
+        for (final (title, body) in scienceSections) ...[
+          Text(title, style: T.h3),
+          const SizedBox(height: 4),
+          Text(body, style: T.body),
+          const SizedBox(height: 14),
+        ],
       ]),
     ),
   );
@@ -95,6 +106,31 @@ class _Item {
   _Item(this.kind, [this.text = '']);
 }
 
+/// R7: one step of the set-up chat, so Back can undo exactly one answer and keep what was typed.
+class _Snap {
+  final List<_Item> items;
+  final String step;
+  final List<QuickChoice> choices;
+  final bool gridChoices;
+  final List<List<Map<String, String>>> focusSets;
+  final int focusIndex;
+  final bool askedRewardDetail;
+  final String pendingFocus;
+  final String typed;
+  _Snap(this.items, this.step, this.choices, this.gridChoices, this.focusSets, this.focusIndex, this.askedRewardDetail, this.pendingFocus, this.typed);
+}
+
+/// Kept in memory so leaving set-up and coming back resumes where the user was (R7).
+class _Resume {
+  final _Snap now;
+  final List<_Snap> history;
+  final int ackCount;
+  _Resume(this.now, this.history, this.ackCount);
+}
+
+/// Forget an unfinished set-up chat (used when a different account signs in).
+void resetSetupChat() => _BlueprintChatScreenState._resume = null;
+
 /// Screens 8–14 — the Blueprint, as one conversation.
 class BlueprintChatScreen extends StatefulWidget {
   const BlueprintChatScreen({super.key});
@@ -103,6 +139,8 @@ class BlueprintChatScreen extends StatefulWidget {
 }
 
 class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
+  static _Resume? _resume;
+
   final s = AppState.I;
   final items = <_Item>[];
   final scroll = ScrollController();
@@ -111,18 +149,67 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
   List<QuickChoice> choices = [];
   bool gridChoices = false;
   bool busy = false;
-  List<Map<String, String>> focusOptions = [];
+  bool finished = false;
+  // R6: every set of focus options shown, so the user can go back to earlier ones.
+  List<List<Map<String, String>>> focusSets = [];
+  int focusIndex = -1;
+  List<Map<String, String>> get focusOptions => focusIndex >= 0 && focusIndex < focusSets.length ? focusSets[focusIndex] : const [];
+  String pendingFocus = '';
+  final history = <_Snap>[];
+  int ackCount = 0;
+
+  _Snap _snap([String typed = '']) => _Snap(List.of(items), step, List.of(choices), gridChoices,
+      focusSets.map((e) => List<Map<String, String>>.of(e)).toList(), focusIndex, _askedRewardDetail, pendingFocus, typed);
+
+  void _apply(_Snap x) {
+    items
+      ..clear()
+      ..addAll(x.items);
+    step = x.step;
+    choices = List.of(x.choices);
+    gridChoices = x.gridChoices;
+    focusSets = x.focusSets.map((e) => List<Map<String, String>>.of(e)).toList();
+    focusIndex = x.focusIndex;
+    _askedRewardDetail = x.askedRewardDetail;
+    pendingFocus = x.pendingFocus;
+  }
+
+  /// R7: Back undoes one answer and puts it back in the box, instead of leaving set-up.
+  bool _stepBack() {
+    if (busy || history.isEmpty) return false;
+    final x = history.removeLast();
+    setState(() => _apply(x));
+    input.text = x.typed;
+    input.selection = TextSelection.collapsed(offset: input.text.length);
+    _scroll();
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _resume = finished ? null : _Resume(_snap(input.text), List.of(history), ackCount);
+    super.dispose();
+  }
 
   int get barStep => switch (step) {
         'wish' || 'reason' => 1,
         'feel' || 'look' || 'able' || 'showup' => 2,
-        'focus' => 3,
+        'focus' || 'focus_confirm' => 3,
         _ => 4,
       };
 
   @override
   void initState() {
     super.initState();
+    final saved = _resume;
+    if (saved != null) {
+      _apply(saved.now);
+      history.addAll(saved.history);
+      ackCount = saved.ackCount;
+      input.text = saved.now.typed;
+      _scroll();
+      return;
+    }
     _coach('What would you most like to change about your health right now?');
     choices = const [
       QuickChoice('Lose weight and feel healthier', icon: Icons.favorite_border, color: NC.warning),
@@ -147,9 +234,19 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
     return '';
   }
 
-  /// C1: always reflect what the user said before moving on.
-  Future<void> _ack(String answerText, {String? question}) async {
+  static const _validations = ['OK, noted.', 'I hear you.', 'Sounds good.', 'Got it, thank you.', 'That makes sense.', 'Noted, thanks.'];
+
+  /// C1 + R3: always acknowledge the answer, but vary it. Every other answer gets a one-line reflection
+  /// in the user's words; the rest get a short validation (no AI call, so it is instant).
+  Future<void> _ack(String answerText, {String? question, bool? reflect}) async {
     final q = question ?? _lastQuestion;
+    final doReflect = reflect ?? (ackCount % 2 == 0);
+    ackCount++;
+    if (!doReflect) {
+      setState(() => _coach(_validations[(ackCount ~/ 2) % _validations.length]));
+      await Future.delayed(const Duration(milliseconds: 300));
+      return;
+    }
     setState(() {
       busy = true;
       items.add(_Item(_K.loading));
@@ -183,6 +280,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
 
   Future<void> answer(String text) async {
     if (busy) return;
+    history.add(_snap(text));
     setState(() {
       items.add(_Item(_K.user, text));
       choices = [];
@@ -216,7 +314,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         s.visionAnswers['feel'] = text;
         await _ack(text);
         setState(() {
-          _coach('How do you want to look? It doesn\'t need to be a number on the scale.');
+          _coach('How would you like to look when you are living this?');
           step = 'look';
         });
       case 'look':
@@ -238,7 +336,17 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         await _ack(text);
         await _buildVision();
       case 'focus':
-        await _setFocus(text);
+        await _focusTyped(text);
+      case 'focus_confirm':
+        if (text == 'Yes, use this focus') {
+          await _setFocus(pendingFocus);
+        } else {
+          setState(() {
+            pendingFocus = '';
+            _coach('No problem. Pick one of the options, or type the focus you want in your own words.');
+            step = 'focus';
+          });
+        }
       case 'obstacle1':
         s.obstaclesText = text;
         await _ack(text);
@@ -319,6 +427,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         if (!mounted) return;
         final saved = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const RewardCardScreen()));
         if (saved == true && mounted) {
+          finished = true;
           Navigator.push(context, MaterialPageRoute(builder: (_) => const SummaryScreen()));
         } else if (mounted) {
           setState(() {
@@ -362,6 +471,24 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
     await _loadFocusOptions();
   }
 
+  void _showFocusSet(int i) {
+    setState(() {
+      focusIndex = i;
+      items.removeWhere((x) => x.kind == _K.focusOptions);
+      items.add(_Item(_K.focusOptions));
+    });
+    _scroll();
+  }
+
+  /// "Show other options": the next set if the user went back, otherwise a new set.
+  Future<void> _nextFocusOptions() async {
+    if (focusIndex < focusSets.length - 1) {
+        _showFocusSet(focusIndex + 1);
+        return;
+      }
+    await _loadFocusOptions();
+  }
+
   Future<void> _loadFocusOptions() async {
     setState(() {
       busy = true;
@@ -369,31 +496,87 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
       items.add(_Item(_K.loading));
     });
     _scroll();
-    final r = await Coach.task('focus_options', {'wish': s.wish, 'reason': s.reason, 'vision': '${s.visionHeadline} ${s.visionBody}', 'already_shown': focusOptions.map((e) => e['title']).toList()});
+    final shown = focusSets.expand((e) => e).map((e) => e['title']).toList();
+    final r = await Coach.task('focus_options', {'wish': s.wish, 'reason': s.reason, 'vision': '${s.visionHeadline} ${s.visionBody}', 'already_shown': shown});
     final list = (r?['options'] is List) ? (r!['options'] as List) : [];
-    focusOptions = list
+    var opts = list
         .whereType<Map>()
         .map((m) => {'title': '${m['title'] ?? ''}', 'why': '${m['why'] ?? ''}'})
         .where((m) => m['title']!.isNotEmpty)
         .take(3)
         .toList();
-    if (focusOptions.isEmpty) {
-      focusOptions = [
+    if (opts.isEmpty && focusSets.isEmpty) {
+      opts = [
         {'title': 'Build healthier dinners into my workweek.', 'why': 'Evenings are often where good intentions slip.'},
         {'title': 'Move for 10 minutes most days.', 'why': 'Small and repeatable beats big and occasional.'},
         {'title': 'Cut down on evening snacking.', 'why': 'A small change at a tricky time of day.'},
       ];
     }
     if (!mounted) return;
+    if (opts.isEmpty) {
+      setState(() {
+        busy = false;
+        items.removeWhere((i) => i.kind == _K.loading);
+      });
+      toast(context, "Couldn't reach the coach. Try again in a moment.");
+      {
+        _showFocusSet(focusIndex);
+        return;
+      }
+    }
+    focusSets.add(opts);
     setState(() {
       busy = false;
       items.removeWhere((i) => i.kind == _K.loading);
-      items.add(_Item(_K.focusOptions));
+    });
+    _showFocusSet(focusSets.length - 1);
+  }
+
+  static final _optionRequest = RegExp(
+      r"\boptions?\b|\bprevious\b|\bearlier\b|\bgo back\b|\bfirst ones\b|\blast ones\b|^(show|can i see|more|other|different|something else|another)\b|\b(more|other|different|new) (ideas|ones|choices|suggestions)\b",
+      caseSensitive: false);
+
+  /// R6: typed text in the focus step. Requests like "show previous options" are handled, never saved
+  /// as the focus; anything else is confirmed before it becomes the 30-Day Focus.
+  Future<void> _focusTyped(String text) async {
+    final t = text.trim();
+    if (_optionRequest.hasMatch(t) && t.split(RegExp(r'\s+')).length <= 10) {
+      final back = RegExp(r'previous|earlier|go back|first|last ones|before', caseSensitive: false).hasMatch(t);
+      if (back && focusIndex > 0) {
+        setState(() => _coach('Here are the earlier options.'));
+        {
+        _showFocusSet(focusIndex - 1);
+        return;
+      }
+      }
+      if (back) {
+        setState(() => _coach('These are the first options I suggested.'));
+        {
+        _showFocusSet(focusIndex);
+        return;
+      }
+      }
+      setState(() => _coach('Here are some other options.'));
+      return _nextFocusOptions();
+    }
+    setState(() {
+      pendingFocus = t;
+      _coach('Use "$t" as your 30-Day Focus?');
+      choices = const [QuickChoice('Yes, use this focus'), QuickChoice('No, show me the options again')];
+      step = 'focus_confirm';
     });
     _scroll();
   }
 
+  void _chooseFocus(String t) {
+    if (busy) return;
+    history.add(_snap());
+    setState(() => items.add(_Item(_K.user, t)));
+    _setFocus(t);
+  }
+
   Future<void> _setFocus(String text) async {
+    pendingFocus = '';
     s.focus = text.trim();
     s.focusStart = DateTime.now();
     await s.save();
@@ -430,10 +613,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
         ],
       ),
     );
-    if (r != null && r.trim().isNotEmpty) {
-      setState(() => items.add(_Item(_K.user, r.trim())));
-      await _setFocus(r);
-    }
+    if (r != null && r.trim().isNotEmpty) _chooseFocus(r.trim());
   }
 
   Widget _focusCards() => Column(children: [
@@ -457,11 +637,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
                   child: FilledButton(
                     key: Key('focus_use_$i'),
                     style: FilledButton.styleFrom(backgroundColor: NC.blue, minimumSize: const Size(0, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                    onPressed: () {
-                      final t = focusOptions[i]['title']!;
-                      setState(() => items.add(_Item(_K.user, t)));
-                      _setFocus(t);
-                    },
+                    onPressed: () => _chooseFocus(focusOptions[i]['title']!),
                     child: const Text('Use this focus'),
                   ),
                 ),
@@ -471,7 +647,11 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
             ]),
           ),
         Row(children: [
-          Expanded(child: SoftButton('Show other options', icon: Icons.refresh, onPressed: busy ? null : _loadFocusOptions)),
+          if (focusIndex > 0) ...[
+            Expanded(child: SoftButton('Previous options', icon: Icons.arrow_back, onPressed: busy ? null : () => _showFocusSet(focusIndex - 1))),
+            const SizedBox(width: 10),
+          ],
+          Expanded(child: SoftButton('Show other options', icon: Icons.refresh, onPressed: busy ? null : _nextFocusOptions)),
         ]),
         const SizedBox(height: 6),
         const Text('Or type your own focus below.', style: T.small),
@@ -492,7 +672,12 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => NavooScaffold(
+  Widget build(BuildContext context) => PopScope(
+      canPop: history.isEmpty && !busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _stepBack();
+      },
+      child: NavooScaffold(
         step: barStep,
         body: Column(children: [
           Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 8), child: Row(children: const [NavooLogo(height: 26)])),
@@ -525,7 +710,7 @@ class _BlueprintChatScreenState extends State<BlueprintChatScreen> {
           ),
           ChatInput(onSend: answer, enabled: !busy, controller: input),
         ]),
-      );
+      ));
 }
 
 /// Screen 14 — Your reward card.
@@ -549,7 +734,7 @@ class RewardCardScreen extends StatelessWidget {
               child: Row(children: [const Icon(Icons.card_giftcard, color: NC.success, size: 20), const SizedBox(width: 10), Expanded(child: Text(r, style: T.h3))]),
             ),
           const SizedBox(height: 10),
-          const Text("Straight after each Micro-Action, you'll get one of these. Navoo matches a reward to each Micro-Action (a TV show suits the evening, not first thing), and you can change it any time.", style: T.sub),
+          const Text("Straight after each Micro-Action, you'll choose one of these. You pick the reward for each Micro-Action, and you can always choose a different one.", style: T.sub),
           const SizedBox(height: 22),
           const Row(children: [
             _RewardWhy(Icons.bolt, NC.blueTint, NC.blue, 'Boosts\nmotivation'),

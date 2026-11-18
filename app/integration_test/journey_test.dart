@@ -120,7 +120,16 @@ void main() {
     await shot('07_vision_feel');
     await tap(find.byKey(const Key('chat_send')));
     await waitIdle();
-    await sendChat('Stronger and healthier. Not a number on the scale.');
+    await sendChat('Stronger and healthier, and comfortable in my clothes.');
+    await waitIdle();
+    // R7: Back undoes one answer and puts it back in the box.
+    await t.tap(find.byTooltip('Back').first, warnIfMissed: false);
+    await wait(1200);
+    final inputW = t.widget(find.byKey(const Key('chat_input')));
+    final restored = inputW is TextField ? inputW.controller?.text ?? '' : '';
+    if (!restored.contains('comfortable in my clothes')) throw TestFailure('R7: Back did not restore the last answer (got "$restored"). Steps: $log');
+    await shot('07b_step_back_keeps_answer');
+    await tap(find.byKey(const Key('chat_send')));
     await waitIdle();
     await sendChat('Keep up with my kids, travel more and be active without feeling tired.');
     await waitIdle();
@@ -131,6 +140,16 @@ void main() {
 
     await waitFor(find.byKey(const Key('focus_use_0')), secs: 90);
     await shot('09_focus_options');
+    // R6: other options, then back to the earlier ones; a typed request is not saved as the focus.
+    await tap(find.text('Show other options'));
+    await waitFor(find.text('Previous options'), secs: 90);
+    await shot('09b_other_options');
+    await tap(find.text('Previous options'));
+    await wait(1000);
+    await sendChat('show me the previous options');
+    await wait(1500);
+    if (find.text('Yes, use this focus').evaluate().isNotEmpty) throw TestFailure('R6: "show me the previous options" was treated as a focus. Steps: $log');
+    await shot('09c_previous_options');
     await tap(find.byKey(const Key('focus_use_0')));
     await waitFor(find.text("I'm too tired after work"));
     await shot('10_obstacles');
@@ -197,8 +216,18 @@ void main() {
     await wait(2500);
     if (find.text('Your Brain Cheat Codes').evaluate().isNotEmpty) {
       await shot('22b_next_codes');
-      await tap(find.text('Skip for now'));
+      // R11 + R12: main If/Then only, skip the other two parts, and choose no reward.
+      await type(find.byKey(const Key('if_cue')), 'I get back from my lunch break');
+      await type(find.byKey(const Key('then_do')), 'walk round the block');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tap(find.byKey(const Key('skip_slip')));
+      await tap(find.byKey(const Key('skip_nudge')));
+      if (find.byKey(const Key('no_reward')).evaluate().isNotEmpty) await tap(find.byKey(const Key('no_reward')));
+      await wait(600);
+      await shot('22c_codes_partly_skipped');
+      await tap(find.byKey(const Key('ifthen_lock')));
       await wait(1500);
+      if (find.byKey(const Key('ifthen_lock')).evaluate().isNotEmpty) throw TestFailure('R11: could not lock in with the slip-up and nudge skipped. Steps: $log');
     }
 
     await tap(find.byKey(const Key('tab_coach')));
@@ -238,7 +267,15 @@ void main() {
     app.navKey.currentState!.push(MaterialPageRoute(builder: (_) => const FocusScreen()));
     await wait(1500);
     await shot('30b_this_weeks_micro_actions');
-    app.navKey.currentState!.pop();
+    // R16: new Micro-Actions are shown with a Confirm button before Brain Cheat Codes.
+    await tap(find.text('Suggest different Micro-Actions'));
+    await waitFor(find.byKey(const Key('confirm_more')), secs: 120);
+    await shot('30c_confirm_new_micro_actions');
+    await tap(find.byKey(const Key('confirm_more')));
+    await waitFor(find.text('Your Brain Cheat Codes'));
+    await tap(find.text('Skip for now'));
+    await wait(1500);
+    app.navKey.currentState!.popUntil((r) => r.isFirst);
     await wait(800);
 
     app.navKey.currentState!.push(MaterialPageRoute(builder: (_) => const WeeklyReviewIntro()));
@@ -249,6 +286,23 @@ void main() {
     await type(find.byKey(const Key('review_worked')), 'Having my trainers by the door made the lunch walks easy.');
     FocusManager.instance.primaryFocus?.unfocus();
     await shot('32_what_worked');
+    // R17: Speak to Navoo opens on top, with a Back button that returns to the same place.
+    await tap(find.text('Speak to Navoo'));
+    await waitFor(find.byKey(const Key('coach_back')));
+    await shot('32b_coach_over_checkin');
+    await tap(find.byKey(const Key('coach_back')));
+    await waitFor(find.byKey(const Key('review_worked')));
+    // R18: leave the check-in, then pick it up again from Home with the answer kept.
+    app.navKey.currentState!.popUntil((r) => r.isFirst);
+    await wait(1000);
+    await tap(find.byKey(const Key('tab_home')));
+    await waitFor(find.text('Continue your check-in'));
+    await shot('32c_continue_checkin_on_home');
+    await tap(find.text('Continue your check-in'));
+    await waitFor(find.byKey(const Key('review_worked')));
+    final workedW = t.widget(find.byKey(const Key('review_worked')));
+    final kept = workedW is TextField ? workedW.controller?.text ?? '' : '';
+    if (!kept.contains('trainers by the door')) throw TestFailure('R18: check-in answer was not kept (got "$kept"). Steps: $log');
     await tap(find.byKey(const Key('worked_continue')));
     await type(find.byKey(const Key('review_inway')), 'On Wednesday I got home exhausted and ordered takeaway.');
     FocusManager.instance.primaryFocus?.unfocus();

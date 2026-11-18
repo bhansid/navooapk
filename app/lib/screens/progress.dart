@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../state.dart';
 import '../theme.dart';
+import 'shell.dart';
 
 /// Screen 25 — Progress. Behaviour and learning, not streaks.
 class ProgressTab extends StatefulWidget {
@@ -107,6 +108,8 @@ class _ProgressTabState extends State<ProgressTab> {
               subtitle: lastDone.feeling == null ? null : 'It felt: ${lastDone.feeling!.toLowerCase()}'),
           const SizedBox(height: 12),
         ],
+        CoachSignpost(onTap: () => openCoach(context, preset: "I'm struggling with my 30-Day Focus. ")),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(color: NC.warmTint.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(22)),

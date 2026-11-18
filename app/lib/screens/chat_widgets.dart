@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 
@@ -44,8 +45,22 @@ class TypingBubble extends StatefulWidget {
 
 class _TypingBubbleState extends State<TypingBubble> with SingleTickerProviderStateMixin {
   late final AnimationController c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+  // R14: say clearly that Navoo is working, and reassure if it takes a while.
+  static const _lines = ['Navoo is thinking...', 'Thinking about what you said...', 'Still working on it, nearly there...'];
+  int line = 0;
+  Timer? t;
+
+  @override
+  void initState() {
+    super.initState();
+    t = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && line < _lines.length - 1) setState(() => line++);
+    });
+  }
+
   @override
   void dispose() {
+    t?.cancel();
     c.dispose();
     super.dispose();
   }
@@ -74,6 +89,8 @@ class _TypingBubbleState extends State<TypingBubble> with SingleTickerProviderSt
                   })),
             ),
           ),
+          const SizedBox(width: 10),
+          Flexible(child: Text(_lines[line], style: T.small)),
         ]),
       );
 }

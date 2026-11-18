@@ -191,10 +191,10 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final w = (MediaQuery.of(context).size.width - 48).clamp(200.0, 420.0) * 0.86;
-    return NavooScaffold(
-      step: widget.onboarding ? 2 : null,
-      body: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
+    // R4: during set-up the poster is smaller and the decision buttons are pinned to the bottom,
+    // so "This looks right" is always visible without scrolling.
+    final w = (MediaQuery.of(context).size.width - 48).clamp(200.0, 420.0) * (widget.onboarding ? 0.62 : 0.86);
+    final list = ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 20), children: [
         Text(widget.onboarding ? "Here's the bigger change you're working towards." : 'Your Vision', style: widget.onboarding ? T.h2 : T.h1),
         const SizedBox(height: 6),
         const Text('Keep it somewhere you will see it every day.', style: T.sub),
@@ -227,14 +227,28 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
             Expanded(child: Text('Seeing your Vision often keeps it front of mind, so you notice more chances to act on it.', style: T.body)),
           ]),
         ),
-        const SizedBox(height: 18),
-        if (widget.onboarding)
-          PrimaryButton('Save vision', trailingArrow: true, testKey: const Key('vision_save'), onPressed: () async {
-            await s.save();
-            if (context.mounted) Navigator.pop(context);
-          })
-        else
+        if (!widget.onboarding) ...[
+          const SizedBox(height: 18),
           VisionDetails(onChanged: () => setState(() {})),
+        ],
+      ]);
+    if (!widget.onboarding) return NavooScaffold(body: list);
+    return NavooScaffold(
+      step: 2,
+      body: Column(children: [
+        Expanded(child: list),
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 10, 24, 12),
+          decoration: const BoxDecoration(color: NC.bg, border: Border(top: BorderSide(color: NC.border))),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            PrimaryButton('This looks right', trailingArrow: true, testKey: const Key('vision_save'), onPressed: () async {
+              await s.save();
+              if (context.mounted) Navigator.pop(context);
+            }),
+            const SizedBox(height: 8),
+            SoftButton('Change something', icon: Icons.edit_outlined, onPressed: working ? null : edit),
+          ]),
+        ),
       ]),
     );
   }

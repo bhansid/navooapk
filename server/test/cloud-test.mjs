@@ -15,11 +15,14 @@ const ok = (name, cond, detail = "") => {
   console.log(`${cond ? "PASS" : "FAIL"}  ${name}${cond ? "" : "  -> " + detail}`);
   if (!cond) fails++;
 };
+const timings = [];
 async function post(body, tries = 2) {
   for (let i = 0; i < tries; i++) {
     try {
+      const t0 = Date.now();
       const r = await fetch(API, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json();
+      timings.push({ what: body.task || body.mode, ms: Date.now() - t0 });
       if (r.status === 403 || j.ok !== false) return { status: r.status, ...j };
     } catch (e) {
       if (i === tries - 1) return { ok: false, error: String(e) };
@@ -106,6 +109,20 @@ try {
 } catch (e) {
   ok("Storage: reachable", false, String(e));
 }
+
+// R14: speed. Report every call and fail if replies are slow.
+{
+  const ms = timings.map((t) => t.ms).sort((a, b) => a - b);
+  const p50 = ms[Math.floor(ms.length * 0.5)] || 0, p90 = ms[Math.floor(ms.length * 0.9)] || 0;
+  console.log("\nTIMINGS " + timings.map((t) => `${t.what}=${t.ms}ms`).join(" "));
+  console.log(`SPEED median ${p50}ms, 90th percentile ${p90}ms`);
+  const info = await fetch(API).then((r) => r.json()).catch(() => ({}));
+  console.log(`MODEL ${info.model}`);
+  ok("Speed: median coach response under 8 seconds", p50 < 8000, `${p50}ms`);
+}
+
+// R10: slip-up ideas must be about this Micro-Action.
+ok("R10: slip-up ideas mention the Micro-Action's activity", (bcc?.slip_up_ideas || []).some((p) => /cook|meal|dinner|food|eat/i.test(`${p.if} ${p.then}`)), JSON.stringify(bcc?.slip_up_ideas));
 
 console.log(`\n${fails === 0 ? "ALL PASSED" : fails + " FAILED"}`);
 process.exit(fails ? 1 : 0);

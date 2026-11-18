@@ -19,6 +19,7 @@ Future<void> main() async {
   if (Auth.remote) await sb_.Supabase.initialize(url: kSupabaseUrl, anonKey: kSupabaseAnon, authOptions: const sb_.FlutterAuthClientOptions(authFlowType: sb_.AuthFlowType.pkce));
   await AppState.I.load();
   if (Auth.remote) Cloud.pull(); // newer copy from another phone, if any
+  Coach.warmUp();
   Device.init();
   runApp(const NavooApp());
 }

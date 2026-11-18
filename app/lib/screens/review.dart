@@ -79,6 +79,13 @@ class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
   late final c = TextEditingController(text: '${s.reviewDraft['worked'] ?? ''}');
 
   @override
+  void initState() {
+    super.initState();
+    // R18: as soon as the check-in starts, Home offers "Continue your check-in".
+    if (s.reviewDraft.isEmpty) _saveDraft({'stage': 'worked'});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final since = s.lastReview ?? s.focusStart ?? DateTime.now().subtract(const Duration(days: 7));
     final done = s.done.where((a) => a.doneAt != null && a.doneAt!.isAfter(since)).toList();
@@ -331,22 +338,99 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
 }
 
 /// P2: add more Micro-Actions once this week's are done.
-Future<bool> addMoreMicroActions(BuildContext context) async {
+/// P2: suggest more Micro-Actions for this week (not added until the user confirms, R16).
+Future<List<MicroAction>> suggestMoreMicroActions({List<String> rejected = const [], bool replaceQueue = false}) async {
   final s = AppState.I;
   final r = await Coach.task('actions', {
     'focus': s.focus,
     'vision': s.visionHeadline,
     'obstacles': s.obstaclesText,
-    'all_previous_micro_actions': s.actions.map((a) => a.title).toList(),
-    'instruction': "The user finished this week's Micro-Actions and wants more this week. Suggest up to 3 that build on what they've done (for example more of the same healthy habit), no repeats.",
+    'how_many': replaceQueue ? s.queue.length.clamp(1, 3) : 3,
+    'all_previous_micro_actions': s.actions.where((a) => !replaceQueue || a.status == 'done' || a.status == 'skipped').map((a) => a.title).toList(),
+    'rejected_suggestions': rejected,
+    'instruction': replaceQueue
+        ? "The user wants different Micro-Actions for this week. Build on what they've already completed; don't reuse or reword the rejected ones."
+        : "The user finished this week's Micro-Actions and wants more this week. Suggest up to 3 that build on what they've done (for example more of the same healthy habit), no repeats.",
   });
-  final previous = s.actions.map((a) => a.title.toLowerCase().trim()).toSet();
-  final list = parseActions(r, 'actions', s.week).where((a) => !previous.contains(a.title.toLowerCase().trim())).toList();
-  if (list.isEmpty) return false;
-  s.actions.addAll(list);
-  s.activateNext();
-  await s.save();
-  return true;
+  final previous = s.actions.map((a) => a.title.toLowerCase().trim()).toSet()..addAll(rejected.map((e) => e.toLowerCase().trim()));
+  return parseActions(r, 'actions', s.week).where((a) => !previous.contains(a.title.toLowerCase().trim())).toList();
+}
+
+/// R16: the user sees the new Micro-Actions first, can change them, and confirms before any
+/// Brain Cheat Codes open.
+class ConfirmMicroActionsScreen extends StatefulWidget {
+  final List<MicroAction> suggested;
+  final bool replaceQueue;
+  const ConfirmMicroActionsScreen({super.key, required this.suggested, this.replaceQueue = false});
+  @override
+  State<ConfirmMicroActionsScreen> createState() => _ConfirmMicroActionsScreenState();
+}
+
+class _ConfirmMicroActionsScreenState extends State<ConfirmMicroActionsScreen> {
+  final s = AppState.I;
+  late List<MicroAction> list = List.of(widget.suggested);
+  final rejected = <String>[];
+  bool busy = false;
+
+  Future<void> _different() async {
+    setState(() => busy = true);
+    rejected.addAll(list.map((a) => a.title));
+    final more = await suggestMoreMicroActions(rejected: rejected, replaceQueue: widget.replaceQueue);
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      if (more.isNotEmpty) list = more;
+    });
+    if (more.isEmpty) toast(context, "Couldn't reach the coach. Try again in a moment.");
+  }
+
+  Future<void> _confirm() async {
+    if (widget.replaceQueue) s.actions.removeWhere((x) => x.status == 'locked' || x.status == 'active');
+    for (final a in list) {
+      a.status = 'locked';
+    }
+    s.actions.addAll(list);
+    s.activateNext();
+    await s.save();
+    if (!mounted) return;
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true, unlocked: true)));
+  }
+
+  @override
+  Widget build(BuildContext context) => NavooScaffold(
+        body: busy
+            ? const NavooThinking(lines: ['Building on what you have done...', 'Choosing your next Micro-Actions...'])
+            : ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 28), children: [
+                Text(widget.replaceQueue ? 'Your new Micro-Actions' : 'More Micro-Actions for this week', style: T.h1),
+                const SizedBox(height: 8),
+                const Text('Check these fit your week. Tap one to change it, then confirm.', style: T.sub),
+                const SizedBox(height: 18),
+                for (var i = 0; i < list.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: InfoCard(
+                      icon: iconFor(list[i].title),
+                      tint: i == 0 ? NC.sageTint : NC.blueTint,
+                      iconColor: i == 0 ? NC.success : NC.blue,
+                      label: 'MICRO-ACTION ${i + 1}',
+                      title: list[i].title,
+                      subtitle: list[i].description.isEmpty ? null : list[i].description,
+                      trailing: const Icon(Icons.edit_outlined, color: NC.slate, size: 20),
+                      onTap: () async {
+                        await editMicroAction(context, list[i], onBusy: (b) => setState(() => busy = b));
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                PrimaryButton('Confirm these Micro-Actions', trailingArrow: true, testKey: const Key('confirm_more'), onPressed: _confirm),
+                const SizedBox(height: 10),
+                SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: _different),
+                const SizedBox(height: 10),
+                SoftButton('Talk it through with Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+                    onPressed: () => openCoachOver(context, 'About my next Micro-Actions: ')),
+              ]),
+      );
 }
 
 /// Screen 27 — 30 days complete.

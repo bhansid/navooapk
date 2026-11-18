@@ -49,11 +49,31 @@ async function discoverModels() {
   return discovered;
 }
 
+const noThinking = new Set(); // models that rejected the thinking setting
+const thinkingFor = (model) => (/gemini-2\.5/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : { thinkingConfig: { thinkingLevel: "low" } });
+
 async function callModel(model, system, contents, wantJson) {
+  try {
+    return await callModelOnce(model, system, contents, wantJson);
+  } catch (e) {
+    // If the faster setting is the problem for this model, retry once without it and remember.
+    if (noThinking.has(model) || /429|quota|rate/i.test(String(e?.message || e))) throw e;
+    noThinking.add(model);
+    return await callModelOnce(model, system, contents, wantJson);
+  }
+}
+
+async function callModelOnce(model, system, contents, wantJson) {
   const res = await client().models.generateContent({
     model,
     contents,
-    config: { systemInstruction: system, temperature: 0.7, ...(wantJson ? { responseMimeType: "application/json" } : {}) },
+    config: {
+      systemInstruction: system,
+      temperature: 0.7,
+      ...(wantJson ? { responseMimeType: "application/json" } : {}),
+      // R14: coaching replies don't need long "thinking"; this cuts response time a lot.
+      ...(noThinking.has(model) ? {} : thinkingFor(model)),
+    },
   });
   const text = res.text ?? "";
   if (!wantJson) return text;
@@ -145,11 +165,16 @@ function profileBlock(profile) {
   return s.length > 6000 ? s.slice(0, 6000) : s;
 }
 
+// R21: automatic test accounts are logged (marked TEST) but never email the Navoo team.
+const isTestUser = (id) => /^(ci-test|cloud-test)/i.test(String(id || "")) || /@example\.(com|org)$/i.test(String(id || ""));
+
 async function flagSafety(userId, kind, text) {
+  const test = isTestUser(userId);
   try {
     const store = getStore("safety-flags");
     const key = `${new Date().toISOString()}_${(userId || "anon").replace(/[^a-zA-Z0-9@._-]/g, "")}`;
-    await store.setJSON(key, { userId, kind, text: String(text).slice(0, 1000), at: new Date().toISOString() });
+    await store.setJSON(key, { userId, kind, test, text: String(text).slice(0, 1000), at: new Date().toISOString() });
+    if (test) return;
     // Email alert via Netlify Forms notifications (configured to go to the Navoo safety lead).
     const site = process.env.URL || "https://navoo-coach-api.netlify.app";
     await fetch(`${site}/`, {
@@ -211,7 +236,7 @@ Answer: ${d.answer}`,
   brain_cheat_codes: (d) => `Create ideas for the user's Brain Cheat Codes for ONE Micro-Action. The user will draft their own; these are examples they can tap and edit.
 FORMAT for every If/Then: "if" is the moment written as "I have finished eating my lunch" (starts with "I", no "if"/"when" word); "then" starts with "I will" (no "then" word). Max 14 words each.
 1. moment_ideas: 3 that link the Micro-Action to a moment that already happens in their day, fitting their routine and timing.
-2. slip_up_ideas: 3 that plan for a motivation drop or the user's own barrier (use their obstacles), e.g. {"if": "I am too tired to cook when I get home", "then": "I will have the easy back-up from the freezer, not a takeaway"} or {"if": "I am too tired when lunch hits", "then": "I will remind myself of my Vision"}.
+2. slip_up_ideas: 3 for a motivation drop or the user's own barrier, and each one MUST be about doing THIS Micro-Action (or its closest easy version) when that barrier shows up, never a generic or unrelated action. Use their obstacles. e.g. for "Cook one rapid meal on Tuesday": {"if": "I am too tired to cook when I get home", "then": "I will have the easy back-up from the freezer, not a takeaway"} or {"if": "I am too tired when lunch hits", "then": "I will remind myself of my Vision"}.
 3. nudge_ideas: 3 short Physical Nudges (Environment Design): a change to their surroundings that makes the action easy and visible, e.g. "Leave the ingredients on the worktop before work". Max 12 words.
 4. reward_suggestion: the item from rewards_menu that best suits this Micro-Action's time of day (or "" if none).
 Never use the word "plan".

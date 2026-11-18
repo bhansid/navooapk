@@ -47,7 +47,7 @@ jobs:
 
       - name: Build release APK
         working-directory: app
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm64 --split-debug-info=build/debug-info  # R23: modern phones only (arm64), debug symbols kept out of the APK
 
       - uses: actions/upload-artifact@v4
         with:

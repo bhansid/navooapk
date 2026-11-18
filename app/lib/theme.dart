@@ -83,12 +83,38 @@ class CoachAvatar extends StatelessWidget {
   final double size;
   const CoachAvatar({super.key, this.size = 40});
   @override
+  // R22: a gradient ring and soft shadow so the coach stands out.
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(color: NC.blueTint, shape: BoxShape.circle),
-        padding: EdgeInsets.all(size * 0.2),
-        child: const NavooMark(),
+        padding: EdgeInsets.all(size * 0.07),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4A90B3), NC.blue, Color(0xFF4E9A73)]),
+          boxShadow: [BoxShadow(color: NC.blue.withValues(alpha: 0.30), blurRadius: size * 0.28, offset: Offset(0, size * 0.08))],
+        ),
+        child: Container(
+          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          padding: EdgeInsets.all(size * 0.15),
+          child: const NavooMark(),
+        ),
+      );
+}
+
+/// R22: the Coach tab icon, a small gradient bubble that reads clearly in the bottom bar.
+class CoachTabIcon extends StatelessWidget {
+  final bool selected;
+  const CoachTabIcon({super.key, this.selected = false});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF4A90B3), NC.blue, Color(0xFF4E9A73)]),
+          boxShadow: selected ? [BoxShadow(color: NC.blue.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 3))] : null,
+        ),
+        child: Icon(selected ? Icons.chat_bubble : Icons.chat_bubble_outline, color: Colors.white, size: 18),
       );
 }
 

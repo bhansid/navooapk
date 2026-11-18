@@ -100,6 +100,9 @@ class MicroAction {
 }
 
 /// Everything Navoo knows about the user. Stored on the device.
+/// R12: the user chose no reward for a Micro-Action.
+const kNoReward = "I don't need a reward this time, I'll just tell myself well done";
+
 class AppState extends ChangeNotifier {
   static final AppState I = AppState();
 
@@ -185,7 +188,10 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  String rewardFor(MicroAction? a) => (a != null && a.reward.isNotEmpty) ? a.reward : reward;
+  String rewardFor(MicroAction? a) {
+    if (a != null && a.reward == kNoReward) return '';
+    return (a != null && a.reward.isNotEmpty) ? a.reward : reward;
+  }
 
   List<MicroAction> get queue => actions.where((a) => a.status == 'locked' || a.status == 'active').toList();
   List<int> get weeksWithActions => (actions.map((a) => a.week).toSet().toList()..sort((a, b) => b.compareTo(a)));
