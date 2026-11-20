@@ -90,17 +90,13 @@ class _CoachScreenState extends State<CoachScreen> {
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 8, 6),
         child: Row(children: [
-          // R17: a clear, labelled Back that returns to where the user was.
+          // R17: Back returns to where the user was (arrow only).
           if (widget.standalone)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: TextButton.icon(
-                key: const Key('coach_back'),
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(backgroundColor: NC.blueTint, foregroundColor: NC.navy, padding: const EdgeInsets.symmetric(horizontal: 12)),
-                icon: const Icon(Icons.arrow_back, size: 20),
-                label: const Text('Back'),
-              ),
+            IconButton(
+              key: const Key('coach_back'),
+              tooltip: 'Back',
+              icon: const Icon(Icons.arrow_back, color: NC.navy),
+              onPressed: () => Navigator.pop(context),
             ),
           const CoachAvatar(size: 46),
           const SizedBox(width: 12),
