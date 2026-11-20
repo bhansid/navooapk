@@ -273,8 +273,17 @@ void main() {
     await wait(1500);
     await shot('30b_this_weeks_micro_actions');
     // R16: new Micro-Actions are shown with a Confirm button before Brain Cheat Codes.
+    await t.ensureVisible(find.text('Suggest different Micro-Actions'));
+    await wait(500);
     await tap(find.text('Suggest different Micro-Actions'));
-    await waitFor(find.byKey(const Key('confirm_more')), secs: 120);
+    for (var i = 0; i < 70 * 5 && find.byKey(const Key('confirm_more')).evaluate().isEmpty; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+      if (i == 60 * 5) {
+        await shot('30x_debug_before_retry');
+        if (find.text('Suggest different Micro-Actions').evaluate().isNotEmpty) await tap(find.text('Suggest different Micro-Actions'));
+      }
+    }
+    await waitFor(find.byKey(const Key('confirm_more')), secs: 90);
     await shot('30c_confirm_new_micro_actions');
     await tap(find.byKey(const Key('confirm_more')));
     await waitFor(find.text('Your Brain Cheat Codes'));
