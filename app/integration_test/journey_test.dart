@@ -310,6 +310,12 @@ void main() {
     app.navKey.currentState!.popUntil((r) => r.isFirst);
     await wait(1000);
     await tap(find.byKey(const Key('tab_home')));
+    await wait(800);
+    // Home keeps its scroll position from earlier in the test; go back to the top, where the card is.
+    for (var i = 0; i < 6 && find.text('Continue your check-in').evaluate().isEmpty; i++) {
+      await t.fling(find.byType(Scrollable).first, const Offset(0, 1200), 3000, warnIfMissed: false);
+      await wait(500);
+    }
     await waitFor(find.text('Continue your check-in'));
     await shot('32c_continue_checkin_on_home');
     await tap(find.text('Continue your check-in'));
