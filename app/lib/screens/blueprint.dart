@@ -62,16 +62,10 @@ class PersonalIntroScreen extends StatelessWidget {
       );
 }
 
-/// R2: "What's the science behind this?" Navoo is supplying the final copy; each section below is a
-/// placeholder in the agreed structure (why willpower alone is not enough, then the three Brain Cheat Codes).
-const scienceSections = <(String, String)>[
-  ('Why willpower alone is not enough',
-      'Willpower runs low when we are tired, stressed or busy, which is exactly when old habits take over. Behavioural science gives you ways to make the right choice easier, so you rely on it less.'),
-  ('Nudges', 'Small changes to your surroundings, like leaving your trainers by the door, make the action you want the easy and obvious one.'),
-  ('Brain shortcuts (heuristics)', 'Your brain loves shortcuts. navoo helps you set up simple rules and cues so the healthy choice becomes the automatic one.'),
-  ('If/Then planning (implementation intentions)',
-      'Deciding in advance "IF this happens, THEN I will do that" means you do not have to decide in the moment. Research shows it makes people much more likely to follow through.'),
-  ('Brain Cheat Codes', 'Together these are your Brain Cheat Codes: navoo helps you create them for every Micro-Action.'),
+/// R2: "What's the science behind this?" Copy supplied by Rosie (Round 2 document, 16 Nov).
+const scienceParagraphs = <String>[
+  "You know what you want to achieve. The hard part is sticking with it, because willpower runs out. That isn't a personal failing, it's simply how brains work.",
+  "navoo is built on behavioural science, including nudge theory, which was recognised by the 2017 Nobel Prize in Economics, and \u201cif this happens, I'll do that\u201d planning (known as implementation intentions), which research shows can substantially improve follow-through. Rather than asking you to try harder, we help you shape your surroundings, routines and mindset so the healthy choice becomes the easy one. Think of it as building cheat codes for your own brain.",
 ];
 
 void showScienceSheet(BuildContext context) {
@@ -87,10 +81,8 @@ void showScienceSheet(BuildContext context) {
       builder: (_, controller) => ListView(controller: controller, padding: const EdgeInsets.fromLTRB(26, 26, 26, 36), children: [
         const Text("What's the science behind this?", style: T.h2),
         const SizedBox(height: 14),
-        for (final (title, body) in scienceSections) ...[
-          Text(title, style: T.h3),
-          const SizedBox(height: 4),
-          Text(body, style: T.body),
+        for (final p in scienceParagraphs) ...[
+          Text(p, style: T.body),
           const SizedBox(height: 14),
         ],
       ]),
