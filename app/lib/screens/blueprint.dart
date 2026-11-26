@@ -54,7 +54,7 @@ class PersonalIntroScreen extends StatelessWidget {
                     testKey: const Key('intro_begin'),
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlueprintChatScreen()))),
                 LinkText("What's the science behind this?", onTap: () => showScienceSheet(context)),
-                const Text('Navoo is an AI coach, not a medical service.', style: TextStyle(fontSize: 12.5, color: NC.slate)),
+                const Text('navoo is an AI coach, not a medical service.', style: TextStyle(fontSize: 12.5, color: NC.slate)),
               ]),
             ),
           ),
@@ -68,10 +68,10 @@ const scienceSections = <(String, String)>[
   ('Why willpower alone is not enough',
       'Willpower runs low when we are tired, stressed or busy, which is exactly when old habits take over. Behavioural science gives you ways to make the right choice easier, so you rely on it less.'),
   ('Nudges', 'Small changes to your surroundings, like leaving your trainers by the door, make the action you want the easy and obvious one.'),
-  ('Brain shortcuts (heuristics)', 'Your brain loves shortcuts. Navoo helps you set up simple rules and cues so the healthy choice becomes the automatic one.'),
+  ('Brain shortcuts (heuristics)', 'Your brain loves shortcuts. navoo helps you set up simple rules and cues so the healthy choice becomes the automatic one.'),
   ('If/Then planning (implementation intentions)',
       'Deciding in advance "IF this happens, THEN I will do that" means you do not have to decide in the moment. Research shows it makes people much more likely to follow through.'),
-  ('Brain Cheat Codes', 'Together these are your Brain Cheat Codes: Navoo helps you create them for every Micro-Action.'),
+  ('Brain Cheat Codes', 'Together these are your Brain Cheat Codes: navoo helps you create them for every Micro-Action.'),
 ];
 
 void showScienceSheet(BuildContext context) {

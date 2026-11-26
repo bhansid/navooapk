@@ -71,7 +71,7 @@ class _CoachScreenState extends State<CoachScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: NC.bg,
         title: const Text('Clear this conversation?', style: T.h3),
-        content: const Text("Navoo will still remember what it has learned about you. You can manage that in Me → Privacy & AI.", style: T.body),
+        content: const Text("navoo will still remember what it has learned about you. You can manage that in Me → Privacy & AI.", style: T.body),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Clear')),
@@ -102,7 +102,7 @@ class _CoachScreenState extends State<CoachScreen> {
           const SizedBox(width: 12),
           const Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Navoo', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: NC.navy)),
+              Text('navoo', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: NC.navy)),
               Text('Your coach', style: T.small),
             ]),
           ),
@@ -144,7 +144,7 @@ class _CoachScreenState extends State<CoachScreen> {
           ),
         ),
       ),
-      ChatInput(onSend: send, enabled: !thinking, controller: input, hint: 'Message Navoo...'),
+      ChatInput(onSend: send, enabled: !thinking, controller: input, hint: 'Message navoo...'),
     ]);
     return widget.standalone ? Scaffold(body: SafeArea(child: body)) : SafeArea(child: body);
   }

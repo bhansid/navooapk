@@ -28,7 +28,7 @@ class NavooApp extends StatelessWidget {
   const NavooApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Navoo',
+        title: 'navoo',
         debugShowCheckedModeBanner: false,
         theme: navooTheme(),
         navigatorKey: navKey,

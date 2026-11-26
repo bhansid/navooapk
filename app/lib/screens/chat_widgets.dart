@@ -46,7 +46,7 @@ class TypingBubble extends StatefulWidget {
 class _TypingBubbleState extends State<TypingBubble> with SingleTickerProviderStateMixin {
   late final AnimationController c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
   // R14: say clearly that Navoo is working, and reassure if it takes a while.
-  static const _lines = ['Navoo is thinking...', 'Thinking about what you said...', 'Still working on it, nearly there...'];
+  static const _lines = ['navoo is thinking...', 'Thinking about what you said...', 'Still working on it, nearly there...'];
   int line = 0;
   Timer? t;
 

@@ -324,7 +324,7 @@ class _HomeTabState extends State<HomeTab> {
                       Text(s.dailyTip.isNotEmpty ? s.dailyTip : 'What would make your next Micro-Action easier right now?',
                           style: const TextStyle(fontSize: 16.5, height: 1.4, color: NC.navy, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
-                      const Text('Reply to Navoo', style: TextStyle(color: NC.blue, fontWeight: FontWeight.w600)),
+                      const Text('Reply to navoo', style: TextStyle(color: NC.blue, fontWeight: FontWeight.w600)),
                     ]),
                   ),
                 ]),
@@ -453,7 +453,7 @@ class _FocusScreenState extends State<FocusScreen> {
                 }
               }),
               const SizedBox(height: 10),
-              SoftButton('Talk it through with Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+              SoftButton('Talk it through with navoo', icon: Icons.chat_bubble_outline, outlined: true,
                   onPressed: () => openCoach(context, preset: 'Can we talk about my 30-Day Focus? ')),
             ]),
     );
@@ -532,14 +532,14 @@ class CoachSignpost extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text(
-                  "Remember your coach is here any time you're struggling with your 30-Day Focus. Don't struggle in silence: message Navoo and we'll work out the next step together.",
+                  "Remember your coach is here any time you're struggling with your 30-Day Focus. Don't struggle in silence: message navoo and we'll work out the next step together.",
                   style: TextStyle(fontSize: 15, height: 1.4, color: NC.navy)),
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: onTap,
                 style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 36)),
                 icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                label: const Text('Message Navoo'),
+                label: const Text('Message navoo'),
               ),
             ]),
           ),
@@ -579,7 +579,7 @@ class _AdaptCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('How is this going?', style: T.h3),
         const SizedBox(height: 4),
-        const Text("Adapting your Micro-Actions to real life is how change sticks. Tell Navoo and we'll adjust.", style: T.small),
+        const Text("Adapting your Micro-Actions to real life is how change sticks. Tell navoo and we'll adjust.", style: T.small),
         const SizedBox(height: 12),
         choice(Icons.trending_up, "I'm nailing it, make it harder", '', NC.success, harder: true),
         choice(Icons.support, "I'm struggling, help me", 'I\'m struggling with "$title". Can you help me?', NC.error),

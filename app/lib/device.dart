@@ -95,7 +95,7 @@ class Device {
         if (a.triggerHour >= 0 && s.nudgeOwnWords && !_quiet(a.triggerHour, s)) {
           await _notes.zonedSchedule(
             50,
-            'Navoo',
+            'navoo',
             a.ifCue.isNotEmpty ? 'If ${a.ifCue}, then ${a.thenDo}.' : 'Time for: ${a.title}',
             _next(a.triggerHour, a.triggerMinute),
             _details,
@@ -109,7 +109,7 @@ class Device {
           if (_quiet(h, s)) continue;
           await _notes.zonedSchedule(
             id++,
-            'Navoo',
+            'navoo',
             texts[i % texts.length],
             _next(h, 0),
             _details,
@@ -160,8 +160,8 @@ class Device {
     final s = AppState.I;
     final start = _next(s.reviewHour, s.reviewMinute, weekday: s.reviewWeekday).toLocal();
     final event = Event(
-      title: 'Navoo weekly check-in',
-      description: 'Ten minutes with Navoo: what worked, what got in the way, and what to adjust next.',
+      title: 'navoo weekly check-in',
+      description: 'Ten minutes with navoo: what worked, what got in the way, and what to adjust next.',
       startDate: start,
       endDate: start.add(const Duration(minutes: 10)),
       recurrence: Recurrence(frequency: Frequency.weekly),
@@ -190,7 +190,7 @@ class Device {
     try {
       final ok = await Gal.hasAccess(toAlbum: true) || await Gal.requestAccess(toAlbum: true);
       if (!ok) return 'Please allow access to Photos to save your Vision.';
-      await Gal.putImageBytes(png, name: 'navoo_vision_${DateTime.now().millisecondsSinceEpoch}', album: 'Navoo');
+      await Gal.putImageBytes(png, name: 'navoo_vision_${DateTime.now().millisecondsSinceEpoch}', album: 'navoo');
       return null;
     } catch (e) {
       return 'Could not save the image.';

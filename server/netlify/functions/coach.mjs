@@ -119,7 +119,7 @@ async function generate(system, contents, wantJson = true) {
   throw new Error(errors.join(" | ").slice(0, 900));
 }
 
-// Team knowledge: the Navoo team can teach the coach new rules, examples and facts live,
+// Team knowledge: the navoo team can teach the coach new rules, examples and facts live,
 // from /coach-brain.html, without an app update. Stored in Netlify Blobs; cached for 60s.
 let kCache = { at: 0, text: "" };
 async function teamKnowledge() {
@@ -133,7 +133,7 @@ async function teamKnowledge() {
   return kCache.text;
 }
 const knowledgeBlock = (t) =>
-  t ? `\n\nNAVOO TEAM UPDATES (written by the Navoo team; follow these over the general guidance above, but never over SAFETY):\n${t}\n` : "";
+  t ? `\n\nNAVOO TEAM UPDATES (written by the navoo team; follow these over the general guidance above, but never over SAFETY):\n${t}\n` : "";
 
 async function knowledgeAdmin(body) {
   const key = process.env.NAVOO_ADMIN_KEY;
@@ -175,7 +175,7 @@ function profileBlock(profile) {
   return s.length > 6000 ? s.slice(0, 6000) : s;
 }
 
-// R21: automatic test accounts are logged (marked TEST) but never email the Navoo team.
+// R21: automatic test accounts are logged (marked TEST) but never email the navoo team.
 const isTestUser = (id) => /^(ci-test|cloud-test)/i.test(String(id || "")) || /@example\.(com|org)$/i.test(String(id || ""));
 
 async function flagSafety(userId, kind, text) {
@@ -185,7 +185,7 @@ async function flagSafety(userId, kind, text) {
     const key = `${new Date().toISOString()}_${(userId || "anon").replace(/[^a-zA-Z0-9@._-]/g, "")}`;
     await store.setJSON(key, { userId, kind, test, text: String(text).slice(0, 1000), at: new Date().toISOString() });
     if (test) return;
-    // Email alert via Netlify Forms notifications (configured to go to the Navoo safety lead).
+    // Email alert via Netlify Forms notifications (configured to go to the navoo safety lead).
     const site = process.env.URL || "https://navoo-coach-api.netlify.app";
     await fetch(`${site}/`, {
       method: "POST",
@@ -195,7 +195,7 @@ async function flagSafety(userId, kind, text) {
         user: String(userId || "unknown"),
         kind: kind === "crisis-keyword" || kind === "crisis" ? "Possible crisis / self-harm" : kind === "eating_disorder" ? "Possible eating disorder" : String(kind),
         time: new Date().toISOString(),
-        message: "Details are in the Navoo safety log (not included in email to protect the user's health information).",
+        message: "Details are in the navoo safety log (not included in email to protect the user's health information).",
       }).toString(),
     });
   } catch (e) {

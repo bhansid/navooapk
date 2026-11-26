@@ -67,7 +67,7 @@ class NavooLogo extends StatelessWidget {
   final double height;
   const NavooLogo({super.key, this.height = 34});
   @override
-  Widget build(BuildContext context) => Image.asset('assets/images/logo_full.png', height: height, semanticLabel: 'navoo');
+  Widget build(BuildContext context) => Image.asset('assets/images/logo_full.png', height: height, semanticLabel: 'navoo', filterQuality: FilterQuality.medium);
 }
 
 class NavooMark extends StatelessWidget {
@@ -76,7 +76,7 @@ class NavooMark extends StatelessWidget {
   const NavooMark({super.key, this.size = 36, this.white = false});
   @override
   Widget build(BuildContext context) =>
-      Image.asset(white ? 'assets/images/logo_mark_white.png' : 'assets/images/logo_mark.png', width: size, height: size);
+      Image.asset(white ? 'assets/images/logo_mark_white.png' : 'assets/images/logo_mark.png', width: size, height: size, filterQuality: FilterQuality.medium);
 }
 
 class CoachAvatar extends StatelessWidget {

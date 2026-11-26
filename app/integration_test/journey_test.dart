@@ -301,7 +301,7 @@ void main() {
     FocusManager.instance.primaryFocus?.unfocus();
     await shot('32_what_worked');
     // R17: Speak to Navoo opens on top, with a Back button that returns to the same place.
-    await tap(find.text('Speak to Navoo'));
+    await tap(find.text('Speak to navoo'));
     await waitFor(find.byKey(const Key('coach_back')));
     await shot('32b_coach_over_checkin');
     await tap(find.byKey(const Key('coach_back')));

@@ -58,7 +58,7 @@ class _MeTabState extends State<MeTab> {
         child: ListView(padding: const EdgeInsets.fromLTRB(20, 20, 20, 28), children: [
           const Text('Your profile', style: T.h1),
           const SizedBox(height: 6),
-          const Text('Your details help Navoo give you more personalised support.', style: T.sub),
+          const Text('Your details help navoo give you more personalised support.', style: T.sub),
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(18),
@@ -122,7 +122,7 @@ class _MeTabState extends State<MeTab> {
           _row(Icons.event_note, 'Weekly check-in time', () => go(const CheckInSetupScreen())),
           _row(Icons.manage_accounts_outlined, 'Account', () => go(const AccountScreen())),
           _row(Icons.shield_outlined, 'Privacy & AI', () => go(const PrivacyScreen())),
-          _row(Icons.science_outlined, 'The science behind Navoo', () => showScienceSheet(context)),
+          _row(Icons.science_outlined, 'The science behind navoo', () => showScienceSheet(context)),
           const SizedBox(height: 8),
           SoftButton('Log out', icon: Icons.logout, outlined: true, onPressed: () async {
             await s.logout();
@@ -188,7 +188,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   Widget build(BuildContext context) => _Form(
         title: 'Basic information',
-        subtitle: 'All optional. You can also just tell Navoo in the chat.',
+        subtitle: 'All optional. You can also just tell navoo in the chat.',
         onSave: () async {
           s.firstName = name.text.trim();
           s.age = age.text.trim();
@@ -227,7 +227,7 @@ class _HealthScreenState extends State<HealthScreen> {
   @override
   Widget build(BuildContext context) => _Form(
         title: 'Your health & lifestyle',
-        subtitle: "We'll keep this simple, and it's all optional. It helps Navoo give more relevant support.",
+        subtitle: "We'll keep this simple, and it's all optional. It helps navoo give more relevant support.",
         onSave: () async {
           final w = double.tryParse(weight.text.replaceAll(',', '.'));
           if (w != null) {
@@ -252,7 +252,7 @@ class _HealthScreenState extends State<HealthScreen> {
           InfoCard(
               icon: Icons.chat_bubble_outline,
               label: 'Prefer to share this in chat?',
-              title: 'Tell Navoo about your health and lifestyle in a conversation instead.',
+              title: 'Tell navoo about your health and lifestyle in a conversation instead.',
               onTap: () => openCoach(context, preset: "Here's a bit about my health and lifestyle: ")),
           const SizedBox(height: 10),
         ],
@@ -298,7 +298,7 @@ class _NudgeSettingsScreenState extends State<NudgeSettingsScreen> {
           const SizedBox(height: 6),
           const Text('Short, helpful nudges at the right time. Never nagging.', style: T.sub),
           const SizedBox(height: 14),
-          _sw('Notifications', 'Allow Navoo to send nudges to this phone', s.notificationsOn, (v) async {
+          _sw('Notifications', 'Allow navoo to send nudges to this phone', s.notificationsOn, (v) async {
             s.notificationsOn = v;
             if (v) await Device.askNotificationPermission();
           }),
@@ -359,7 +359,7 @@ class _NudgeSettingsScreenState extends State<NudgeSettingsScreen> {
           _sw('Your own words', 'Your own If/Then words, played back at the right moment', s.nudgeOwnWords, (v) => s.nudgeOwnWords = v),
           _sw('Encouragement', 'A reminder of who you are becoming', s.nudgeEncouragement, (v) => s.nudgeEncouragement = v),
           _sw('Quick tips', 'Small tricks that make the next Micro-Action easier', s.nudgeTips, (v) => s.nudgeTips = v),
-          _sw('Progress insights', 'What Navoo has noticed about what works for you', s.nudgeProgress, (v) => s.nudgeProgress = v),
+          _sw('Progress insights', 'What navoo has noticed about what works for you', s.nudgeProgress, (v) => s.nudgeProgress = v),
           _sw('Weekly check-in', 'A reminder at your chosen check-in time', s.nudgeWeekly, (v) => s.nudgeWeekly = v),
           const Divider(),
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('GENTLE WELLBEING REMINDERS (OPTIONAL)', style: T.label)),
@@ -445,7 +445,7 @@ Future<void> confirmDelete(BuildContext context) async {
     builder: (_) => AlertDialog(
       backgroundColor: NC.bg,
       title: const Text('Delete everything?', style: T.h3),
-      content: const Text('This permanently deletes your account, your Vision, your Micro-Actions, your conversations and everything Navoo has learned about you. It cannot be undone.',
+      content: const Text('This permanently deletes your account, your Vision, your Micro-Actions, your conversations and everything navoo has learned about you. It cannot be undone.',
           style: T.body),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -474,7 +474,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       final dir = await getTemporaryDirectory();
       final f = File('${dir.path}/navoo_my_data.json');
       await f.writeAsString(const JsonEncoder.withIndent('  ').convert(s.toJson()));
-      await Device.shareFile(f.path, 'My Navoo data');
+      await Device.shareFile(f.path, 'My navoo data');
     } catch (_) {
       if (mounted) toast(context, 'Could not export your data.');
     }
@@ -501,7 +501,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               iconColor: NC.success,
               title: 'How your data is used',
               onTap: () => info('How your data is used',
-                  'Your Vision, Micro-Actions, check-ins and conversations are stored on this phone. When you talk to Navoo, the relevant parts are sent securely to our AI coach so it can reply in a way that fits you. Navoo is an AI coach, not a medical service, and its suggestions are not medical advice.\n\nIf you mention something that suggests you may be at risk, Navoo will share crisis support and may flag it privately to the Navoo team so they can follow up safely.')),
+                  'Your Vision, Micro-Actions, check-ins and conversations are saved securely to your navoo account, so they are there on any phone you log in on, and a copy is kept on this phone. Only you can see your data. When you talk to navoo, the relevant parts are sent securely to our AI coach so it can reply in a way that fits you. navoo is an AI coach, not a medical service, and its suggestions are not medical advice.\n\nIf you mention something that suggests you may be at risk, navoo will share crisis support and may flag it privately to the navoo team so they can follow up safely.')),
           const SizedBox(height: 10),
           InfoCard(icon: Icons.download_outlined, title: 'Export my data', subtitle: 'Download a copy of your data.', onTap: export),
           const SizedBox(height: 10),
@@ -509,7 +509,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               icon: Icons.delete_sweep_outlined,
               tint: NC.roseTint,
               iconColor: NC.error,
-              title: 'Clear what Navoo has learned',
+              title: 'Clear what navoo has learned',
               subtitle: 'Removes learned patterns and conversations. Keeps your account.',
               onTap: () async {
                 setState(() {
@@ -524,7 +524,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Personalised coaching', style: TextStyle(fontWeight: FontWeight.w500, color: NC.navy)),
-            subtitle: const Text('Navoo uses what you share and what it learns to make suggestions more relevant to you.', style: T.small),
+            subtitle: const Text('navoo uses what you share and what it learns to make suggestions more relevant to you.', style: T.small),
             value: s.personalisedCoaching,
             onChanged: (v) async {
               setState(() => s.personalisedCoaching = v);

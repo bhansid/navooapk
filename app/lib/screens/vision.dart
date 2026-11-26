@@ -138,7 +138,7 @@ class _VisionCardScreenState extends State<VisionCardScreen> {
     });
   }
 
-  Future<void> printIt() => _withImage((png) => Device.printImage(png, 'My Navoo Vision'));
+  Future<void> printIt() => _withImage((png) => Device.printImage(png, 'My navoo Vision'));
   Future<void> share() => _withImage((png) => Device.shareImage(png, 'My Vision'));
 
   Future<void> edit() async {

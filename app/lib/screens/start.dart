@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api.dart';
 import '../cloud.dart';
 import '../state.dart';
@@ -156,7 +158,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
                 NavooLogo(height: 32),
                 SizedBox(height: 26),
-                Text('You know what you want to change. Navoo helps you actually do it.', style: T.h1),
+                Text('You know what you want to change. navoo helps you actually do it.', style: T.h1),
                 SizedBox(height: 14),
                 Text('An AI behaviour-change coach that gets to know you, helps you work out what to do next, and adapts when real life gets in the way.',
                     style: T.sub),
@@ -270,7 +272,7 @@ Future<void> _enterApp(BuildContext context, String email, {String? name}) async
   if (!had) {
     s.fromJson({});
   }
-  // Bring back this user's data from Navoo's cloud (new phone, reinstall, or a newer copy).
+  // Bring back this user's data from navoo's cloud (new phone, reinstall, or a newer copy).
   await Cloud.pull();
   resetSetupChat();
   s.email = email.trim().toLowerCase();
@@ -328,8 +330,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           const SizedBox(height: 6),
           PrimaryButton('Create account', trailingArrow: true, busy: busy, onPressed: submit, testKey: const Key('signup_submit')),
           const SizedBox(height: 10),
-          const Text('By creating an account you agree to the Navoo Terms and Privacy Policy (navoo.ai/terms, navoo.ai/privacy). You must be 18 or over.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: NC.slate)),
+          const LegalLinks(prefix: 'By creating an account you agree to the navoo ', suffix: ' You must be 18 or over.'),
           const SizedBox(height: 22),
           const _SocialRow(),
           const SizedBox(height: 14),
@@ -434,11 +435,13 @@ class _LoginScreenState extends State<LoginScreen> {
           if (err != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(err!, style: const TextStyle(color: NC.error))),
           const SizedBox(height: 6),
           PrimaryButton('Log in', trailingArrow: true, busy: busy, onPressed: submit, testKey: const Key('login_submit')),
+          const SizedBox(height: 10),
+          const LegalLinks(prefix: 'By logging in you agree to the navoo '),
           const SizedBox(height: 22),
           const _SocialRow(),
           const SizedBox(height: 18),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Text('New to Navoo?', style: T.small),
+            const Text('New to navoo?', style: T.small),
             LinkText('Create an account',
                 onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CreateAccountScreen()))),
           ]),
@@ -482,7 +485,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             Text(
                 Auth.remote
                     ? "If an account exists for this email, we've sent instructions to reset your password."
-                    : 'In this test version accounts are kept on this phone, so no email is sent. Create a new account or contact the Navoo team.',
+                    : 'In this test version accounts are kept on this phone, so no email is sent. Create a new account or contact the navoo team.',
                 style: T.sub),
             const SizedBox(height: 26),
             if (Auth.remote) InfoCard(icon: Icons.mail_outline, label: "We've sent a reset link to", title: email.text.trim()),
@@ -491,4 +494,44 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ],
         ]),
       );
+}
+
+
+/// Asad (26 Nov): the Terms and Privacy Policy are tappable links on the sign-up and log-in screens.
+class LegalLinks extends StatefulWidget {
+  final String prefix;
+  final String suffix;
+  const LegalLinks({super.key, required this.prefix, this.suffix = ''});
+  @override
+  State<LegalLinks> createState() => _LegalLinksState();
+}
+
+class _LegalLinksState extends State<LegalLinks> {
+  late final terms = TapGestureRecognizer()..onTap = () => _open('https://navoo.ai/terms');
+  late final privacy = TapGestureRecognizer()..onTap = () => _open('https://navoo.ai/privacy');
+
+  void _open(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+  @override
+  void dispose() {
+    terms.dispose();
+    privacy.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const link = TextStyle(color: NC.blue, fontWeight: FontWeight.w600, decoration: TextDecoration.underline);
+    return Text.rich(
+      TextSpan(style: const TextStyle(fontSize: 12.5, color: NC.slate, height: 1.4), children: [
+        TextSpan(text: widget.prefix),
+        TextSpan(text: 'Terms', style: link, recognizer: terms),
+        const TextSpan(text: ' and '),
+        TextSpan(text: 'Privacy Policy', style: link, recognizer: privacy),
+        TextSpan(text: '.${widget.suffix}'),
+      ]),
+      key: const Key('legal_links'),
+      textAlign: TextAlign.center,
+    );
+  }
 }

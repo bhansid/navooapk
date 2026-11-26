@@ -121,7 +121,7 @@ class _ProgressTabState extends State<ProgressTab> {
             ]),
             const SizedBox(height: 12),
             if (s.learnings.isEmpty && derived.isEmpty)
-              const Text('As you do your Micro-Actions and talk to Navoo, what helps you and what gets in the way will show up here.', style: T.body)
+              const Text('As you do your Micro-Actions and talk to navoo, what helps you and what gets in the way will show up here.', style: T.body)
             else
               ...[...s.learnings.reversed.take(8), ...derived].map((l) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),

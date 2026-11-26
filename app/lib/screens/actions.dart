@@ -51,7 +51,7 @@ Future<bool> editMicroAction(BuildContext context, MicroAction a, {void Function
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: t, autofocus: true, maxLines: 3, minLines: 1, decoration: const InputDecoration(labelText: 'Micro-Action')),
           const SizedBox(height: 10),
-          TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details', helperText: 'Leave as it is and Navoo will update it to match.')),
+          TextField(controller: d, maxLines: 4, minLines: 1, decoration: const InputDecoration(labelText: 'Details', helperText: 'Leave as it is and navoo will update it to match.')),
         ]),
       ),
       actions: [
@@ -426,7 +426,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
     if (!skipSlip && (sIf.text.trim().isEmpty || sThen.text.trim().isEmpty)) missing.add('your slip-up plan');
     if (!skipNudge && nudge.text.trim().isEmpty) missing.add('your Physical Nudge');
     if (missing.isNotEmpty) {
-      setState(() => error = 'Add ${missing.join(' and ')} to lock this in. Tap one of Navoo\'s ideas if you\'re stuck, or choose "Skip for now" on that part.');
+      setState(() => error = 'Add ${missing.join(' and ')} to lock this in. Tap one of navoo\'s ideas if you\'re stuck, or choose "Skip for now" on that part.');
       return;
     }
     a.ifCue = cleanIf(mIf.text);
@@ -507,7 +507,7 @@ class _IfThenScreenState extends State<IfThenScreen> {
     if (loading) {
       return const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
-          child: Row(children: [SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 10), Text('Navoo is thinking of ideas...', style: T.small)]));
+          child: Row(children: [SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 10), Text('navoo is thinking of ideas...', style: T.small)]));
     }
     if (list.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -844,7 +844,7 @@ class ActionDetailScreen extends StatelessWidget {
         SoftButton(a.codesDone ? 'Edit my Brain Cheat Codes' : 'Set up my Brain Cheat Codes', icon: Icons.psychology_outlined,
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IfThenScreen(fromHome: true)))),
         const SizedBox(height: 10),
-        SoftButton('Talk to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () => openCoach(context, preset: "I'm working on: ${a.title}. ")),
+        SoftButton('Talk to navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () => openCoach(context, preset: "I'm working on: ${a.title}. ")),
       ]),
     );
   }
@@ -965,7 +965,7 @@ class _CelebrationScreenState extends State<CelebrationScreen> with SingleTicker
           const SizedBox(height: 20),
           PrimaryButton('Continue', trailingArrow: true, onPressed: next, testKey: const Key('celebrate_continue')),
           const SizedBox(height: 10),
-          SoftButton('Talk to Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+          SoftButton('Talk to navoo', icon: Icons.chat_bubble_outline, outlined: true,
               onPressed: () => openCoach(context, preset: 'I just finished "${widget.done.title}". ')),
         ]),
         IgnorePointer(

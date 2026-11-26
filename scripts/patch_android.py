@@ -23,7 +23,7 @@ perms = ''.join(f'    <uses-permission android:name="android.permission.{p}"/>\n
 perms += '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>\n'
 if 'SET_WALLPAPER' not in x:
     x = x.replace('<application', perms + '    <application', 1)
-x = re.sub(r'android:label="[^"]*"', 'android:label="Navoo"', x, count=1)
+x = re.sub(r'android:label="[^"]*"', 'android:label="navoo"', x, count=1)
 receivers = '''
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

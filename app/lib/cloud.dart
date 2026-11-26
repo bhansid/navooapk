@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb_;
 import 'api.dart' show Auth;
 import 'state.dart';
 
-/// Keeps each user's data in Navoo's Supabase (table user_state, one private row per user).
+/// Keeps each user's data in navoo's Supabase (table user_state, one private row per user).
 /// The phone keeps a copy so the app works offline; changes are pushed a few seconds after they happen,
 /// and logging in on any phone brings everything back.
 class Cloud {

@@ -122,7 +122,7 @@ class _WhatWorkedScreenState extends State<WhatWorkedScreen> {
           if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const InTheWayScreen()));
         }),
         const SizedBox(height: 10),
-        SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
+        SoftButton('Speak to navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
           await _saveDraft({'stage': 'worked', 'worked': c.text.trim()});
           if (context.mounted) openCoachOver(context, '');
         }),
@@ -199,7 +199,7 @@ class _InTheWayScreenState extends State<InTheWayScreen> {
             if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => NextWeekScreen(said: c.text.trim(), factors: factors.toList())));
           }),
           const SizedBox(height: 10),
-          SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
+          SoftButton('Speak to navoo', icon: Icons.chat_bubble_outline, outlined: true, onPressed: () async {
             await _keep();
             if (context.mounted) openCoachOver(context, '');
           }),
@@ -331,7 +331,7 @@ class _NextWeekScreenState extends State<NextWeekScreen> {
                 const SizedBox(height: 10),
                 SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: () => _load(different: true)),
                 const SizedBox(height: 10),
-                SoftButton('Speak to Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+                SoftButton('Speak to navoo', icon: Icons.chat_bubble_outline, outlined: true,
                     onPressed: () => openCoachOver(context, "For next week, I'd like to change my Micro-Actions. ")),
               ]),
       );
@@ -427,7 +427,7 @@ class _ConfirmMicroActionsScreenState extends State<ConfirmMicroActionsScreen> {
                 const SizedBox(height: 10),
                 SoftButton('Suggest different Micro-Actions', icon: Icons.refresh, onPressed: _different),
                 const SizedBox(height: 10),
-                SoftButton('Talk it through with Navoo', icon: Icons.chat_bubble_outline, outlined: true,
+                SoftButton('Talk it through with navoo', icon: Icons.chat_bubble_outline, outlined: true,
                     onPressed: () => openCoachOver(context, 'About my next Micro-Actions: ')),
               ]),
       );
