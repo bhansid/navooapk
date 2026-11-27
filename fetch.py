@@ -8,7 +8,7 @@ os.makedirs('out', exist_ok=True)
 meta = {}
 groups = {}
 # Pexels IDs
-for i in []:
+for i in open('pexels.txt').read().split():
     groups.setdefault('pexels', []).append(('p'+i, f'https://images.pexels.com/photos/{i}/pexels-photo-{i}.jpeg?auto=compress&cs=tinysrgb&w=500', {'src':'pexels','id':i}))
 # Openverse (stocksnap etc, commercial-use)
 for qi, q in enumerate([l.strip() for l in open('queries.txt') if l.strip()]):
