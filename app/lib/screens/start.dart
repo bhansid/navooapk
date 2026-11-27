@@ -85,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
           height: MediaQuery.of(context).size.height * 0.42,
           child: Padding(
             // Push the photo down so faces sit between the chat bubbles and the cards.
-            padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.42 * 0.28),
+            padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.42 * 0.10),
             child: ShaderMask(
             shaderCallback: (r) => const LinearGradient(
                 begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black], stops: [0, 0.25]).createShader(r),
