@@ -1,0 +1,19 @@
+name: photo-picker
+on:
+  push:
+    branches: [photo-picker]
+    paths: [queries.txt, fetch.py, get.json]
+permissions:
+  contents: write
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow
+      - run: |
+          if [ -f get.json ] && [ get.json -nt queries.txt ]; then python get.py; else python fetch.py; fi
+      - run: |
+          git config user.name ci; git config user.email ci@example.com
+          git add out full 2>/dev/null || git add out
+          git commit -m "results [skip ci]" && git push
