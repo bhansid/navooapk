@@ -1,37 +1,39 @@
-import json, urllib.request, urllib.parse, os, sys
+import json, urllib.request, urllib.parse, os
 from PIL import Image, ImageDraw
-Q = [l.strip() for l in open('queries.txt') if l.strip()]
-H = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36','Accept':'application/json'}
-def get(u, raw=False):
+H = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36'}
+def get(u, raw=True):
     r = urllib.request.urlopen(urllib.request.Request(u, headers=H), timeout=40).read()
     return r if raw else json.loads(r)
 os.makedirs('out', exist_ok=True)
 meta = {}
-n = 0
-for qi, q in enumerate(Q):
+groups = {}
+# Pexels IDs
+for i in open('pexels.txt').read().split():
+    groups.setdefault('pexels', []).append(('p'+i, f'https://images.pexels.com/photos/{i}/pexels-photo-{i}.jpeg?auto=compress&cs=tinysrgb&w=500', {'src':'pexels','id':i}))
+# Openverse (stocksnap etc, commercial-use)
+for qi, q in enumerate([l.strip() for l in open('queries.txt') if l.strip()]):
     try:
-        d = get('https://unsplash.com/napi/search/photos?' + urllib.parse.urlencode({'query': q, 'per_page': 30}))
+        d = get('https://api.openverse.org/v1/images/?' + urllib.parse.urlencode({'q': q, 'license_type': 'commercial,modification', 'page_size': 20, 'size':'large', 'category':'photograph'}), raw=False)
     except Exception as e:
-        print('ERR', q, e); continue
+        print('ERR ov', q, e); continue
+    for j, r in enumerate(d.get('results', [])):
+        groups.setdefault(f'ov{qi:02d}', []).append((f'o{qi}-{j}', r.get('thumbnail') or r['url'], {'src':r.get('source'),'url':r['url'],'lic':r.get('license'),'landing':r.get('foreign_landing_url'),'creator':r.get('creator'),'q':q,'w':r.get('width'),'h':r.get('height')}))
+for g, items in groups.items():
     thumbs = []
-    for p in d.get('results', []):
-        if p.get('premium') or p.get('plus') or 'plus.unsplash' in p['urls']['small']: continue
-        n += 1; key = f'{qi}-{len(thumbs)}'
+    for k, u, m in items:
         try:
-            b = get(p['urls']['small'], raw=True)
+            b = get(u); fn = f'/tmp/{k}.jpg'; open(fn,'wb').write(b); Image.open(fn).verify()
+            thumbs.append((k, fn)); meta[k] = m
         except Exception as e:
-            continue
-        fn = f'out/t_{key}.jpg'; open(fn, 'wb').write(b)
-        meta[key] = {'id': p['id'], 'raw': p['urls']['raw'], 'w': p['width'], 'h': p['height'], 'user': p['user']['name'], 'link': p['links']['html'], 'alt': p.get('alt_description'), 'q': q}
-        thumbs.append((key, fn))
-        if len(thumbs) >= 24: break
+            print('ERR', k, e)
     W, Hh, cols = 260, 260, 6
-    rows = (len(thumbs) + cols - 1) // cols
-    sh = Image.new('RGB', (W * cols, (Hh + 18) * max(rows,1)), 'white'); dr = ImageDraw.Draw(sh)
-    for i, (k, f) in enumerate(thumbs):
-        im = Image.open(f).convert('RGB'); im.thumbnail((W - 4, Hh)); x = (i % cols) * W; y = (i // cols) * (Hh + 18)
-        sh.paste(im, (x, y)); dr.text((x + 3, y + Hh + 3), k, fill='black')
-    sh.save(f'out/sheet_{qi:02d}.jpg', quality=70)
-    for k, f in thumbs: os.remove(f)
-    print(q, len(thumbs))
-json.dump(meta, open('out/meta.json', 'w'), indent=1)
+    for page in range(0, len(thumbs), 24):
+        chunk = thumbs[page:page+24]
+        rows = (len(chunk)+cols-1)//cols
+        sh = Image.new('RGB', (W*cols, (Hh+18)*max(rows,1)), 'white'); dr = ImageDraw.Draw(sh)
+        for i, (k, f) in enumerate(chunk):
+            im = Image.open(f).convert('RGB'); im.thumbnail((W-4, Hh)); x=(i%cols)*W; y=(i//cols)*(Hh+18)
+            sh.paste(im,(x,y)); dr.text((x+3,y+Hh+3), k + ' ' + str(meta[k].get('src')), fill='black')
+        sh.save(f'out/sheet_{g}_{page//24}.jpg', quality=70)
+    print(g, len(thumbs))
+json.dump(meta, open('out/meta.json','w'), indent=1)
