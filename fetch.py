@@ -8,12 +8,12 @@ os.makedirs('out', exist_ok=True)
 meta = {}
 groups = {}
 # Pexels IDs
-for i in open('pexels.txt').read().split():
+for i in []:
     groups.setdefault('pexels', []).append(('p'+i, f'https://images.pexels.com/photos/{i}/pexels-photo-{i}.jpeg?auto=compress&cs=tinysrgb&w=500', {'src':'pexels','id':i}))
 # Openverse (stocksnap etc, commercial-use)
 for qi, q in enumerate([l.strip() for l in open('queries.txt') if l.strip()]):
     try:
-        d = get('https://api.openverse.org/v1/images/?' + urllib.parse.urlencode({'q': q, 'license_type': 'commercial,modification', 'page_size': 20, 'size':'large', 'category':'photograph'}), raw=False)
+        d = get('https://api.openverse.org/v1/images/?' + urllib.parse.urlencode({'q': q, 'license_type': 'commercial,modification', 'page_size': 20, 'size':'large', 'category':'photograph', 'source':'stocksnap'}), raw=False)
     except Exception as e:
         print('ERR ov', q, e); continue
     for j, r in enumerate(d.get('results', [])):
