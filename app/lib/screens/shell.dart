@@ -83,7 +83,7 @@ class _MainShellState extends State<MainShell> {
         }),
         destinations: const [
           NavigationDestination(key: Key('tab_home'), icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: NC.blue), label: 'Home'),
-          NavigationDestination(key: Key('tab_coach'), icon: CoachTabIcon(), selectedIcon: CoachTabIcon(selected: true), label: 'Coach'),
+          NavigationDestination(key: Key('tab_coach'), icon: CoachTabIcon(), selectedIcon: CoachTabIcon(selected: true), label: 'AI Coach'),
           NavigationDestination(key: Key('tab_progress'), icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart, color: NC.blue), label: 'Progress'),
           NavigationDestination(key: Key('tab_me'), icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: NC.blue), label: 'Me'),
         ],
@@ -532,7 +532,7 @@ class CoachSignpost extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text(
-                  "Remember your coach is here any time you're struggling with your 30-Day Focus. Don't struggle in silence: message navoo and we'll work out the next step together.",
+                  "Remember your AI coach is here any time you're struggling with your 30-Day Focus. Don't struggle in silence: message navoo and we'll work out the next step together.",
                   style: TextStyle(fontSize: 15, height: 1.4, color: NC.navy)),
               const SizedBox(height: 8),
               TextButton.icon(

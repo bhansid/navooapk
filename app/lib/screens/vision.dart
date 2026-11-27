@@ -5,7 +5,7 @@ import '../device.dart';
 import '../state.dart';
 import '../theme.dart';
 
-const visionImages = ['vision_1', 'vision_2', 'vision_3', 'hero_splash', 'hero_personal'];
+const visionImages = ['vision_1', 'vision_2', 'vision_3', 'vision_4', 'vision_5'];
 
 /// The vision card the user saves, prints or sets as wallpaper. Rendered at phone proportions.
 class VisionPoster extends StatelessWidget {

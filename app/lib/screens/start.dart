@@ -83,11 +83,15 @@ class _SplashScreenState extends State<SplashScreen> {
           right: 0,
           bottom: 150,
           height: MediaQuery.of(context).size.height * 0.42,
-          child: ShaderMask(
+          child: Padding(
+            // Push the photo down so faces sit between the chat bubbles and the cards.
+            padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.42 * 0.28),
+            child: ShaderMask(
             shaderCallback: (r) => const LinearGradient(
                 begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black], stops: [0, 0.25]).createShader(r),
             blendMode: BlendMode.dstIn,
             child: Image.asset('assets/images/hero_splash.jpg', fit: BoxFit.cover, alignment: Alignment.topCenter),
+          ),
           ),
         ),
         SafeArea(
@@ -166,7 +170,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(child: Image.asset('assets/images/hero_welcome.jpg', fit: BoxFit.cover, width: double.infinity, alignment: const Alignment(0.35, -0.2))),
+          Expanded(child: Image.asset('assets/images/hero_welcome.jpg', fit: BoxFit.cover, width: double.infinity, alignment: const Alignment(0.1, -0.6))),
           SafeArea(
             top: false,
             child: Padding(

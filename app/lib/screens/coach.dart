@@ -103,7 +103,7 @@ class _CoachScreenState extends State<CoachScreen> {
           const Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('navoo', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: NC.navy)),
-              Text('Your coach', style: T.small),
+              Text('Your AI coach', style: T.small),
             ]),
           ),
           PopupMenuButton<String>(
