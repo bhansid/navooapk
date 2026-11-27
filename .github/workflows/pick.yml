@@ -15,5 +15,5 @@ jobs:
           python fetch.py
       - run: |
           git config user.name ci; git config user.email ci@example.com
-          git add out full 2>/dev/null || git add out
+          git add -A out full || true
           git commit -m "results [skip ci]" && git push
